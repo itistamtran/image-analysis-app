@@ -30,7 +30,7 @@ export default function UploadPage() {
 
     setLoading(true);
     try {
-      const response = await axios.post('lask-api-production-f9b2.up.railway.app/predict', formData, {
+      const response = await axios.post('https://flask-api-production-f9b2.up.railway.app/predict', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
