@@ -2,8 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "http://localhost:5001/api/$1"
+      "destination": "https://medscanai-35da.onrender.com/api/$1"
     }
-  ],
-  "ignoreCommand": "echo Ignored build"
+  ]
 }

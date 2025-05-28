@@ -30,7 +30,7 @@ export default function UploadPage() {
 
     setLoading(true);
     try {
-      const response = await axios.post('/predict', formData, {
+      const response = await axios.post('https://medscanai-35da.onrender.com/predict', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
