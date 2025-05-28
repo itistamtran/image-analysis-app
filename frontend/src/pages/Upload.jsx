@@ -55,11 +55,19 @@ export default function UploadPage() {
       });
     
     } catch (err) {
-        console.error(err);  
-          const msg = err.response?.data?.error || err.message || 'Unknown error';
-            setError('Server error: ' + msg);
+        console.error(err);
+        let msg = 'Unknown error';
 
-      } finally {
+        if (err.response?.data?.error) {
+          msg = err.response.data.error;
+        } else if (err.message) {
+          msg = err.message;
+        } else {
+          msg = JSON.stringify(err);
+        }
+
+        setError('Server error: ' + msg);
+    } finally {
       setLoading(false);
     }
   };
