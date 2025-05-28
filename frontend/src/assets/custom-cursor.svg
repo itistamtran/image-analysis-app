@@ -1,0 +1,21 @@
+<svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="borderGradient" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e5ff" />
+      <stop offset="100%" stop-color="#005eff" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#00e5ff" flood-opacity="0.6" />
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#005eff" flood-opacity="0.3" />
+    </filter>
+  </defs>
+  
+  <!-- Cursor shape with border -->
+  <path
+    d="M4 2 L14 32 L18 22 L32 18 Z"
+    fill="black"
+    stroke="url(#borderGradient)"
+    stroke-width="2"
+    filter="url(#glow)"
+  />
+</svg>
