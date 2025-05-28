@@ -10,7 +10,7 @@ CORS(app, resources={r"/predict": {"origins": "*"}})
 def predict():
     try:
         print("Request received")
-        print(request.files)  
+        print("Request files:", request.files)
         if 'image' not in request.files:
             return jsonify({'error': 'No image uploaded'}), 400
 
