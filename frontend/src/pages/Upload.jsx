@@ -58,17 +58,18 @@ export default function UploadPage() {
         console.error(err);
         let msg = 'Unknown error';
 
-        if (err.response?.data?.error) {
-          msg = err.response.data.error;
+        if (err.response?.data) {
+          msg = JSON.stringify(err.response.data, null, 2); // Pretty-print response
         } else if (err.message) {
           msg = err.message;
         } else {
-          msg = JSON.stringify(err);
+          msg = JSON.stringify(err, null, 2);
         }
 
-        setError('Server error: ' + msg);
-    } finally {
-      setLoading(false);
+        setError('Server error:\n' + msg);
+      }
+        finally {
+          setLoading(false);
     }
   };
 
