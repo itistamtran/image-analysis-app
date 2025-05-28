@@ -104,15 +104,15 @@ export default function Contact() {
             <Typography variant="h5" sx={{ fontFamily: 'Neue Machina, sans-serif', mb: 4 }}>
               Get in <Box component="span" sx={{ color: '#5de0e6', fontWeight: 'bold' }}>Touch</Box>
             </Typography>
-            <p className="mb-4 text-sm text-white md:text-base">
+            <p className="mb-4 text-sm text-white md:text-base font-neue-machina tracking-wider">
               Whether you have a question, feedback, or just want to say hello — I’d love to hear from you. MedScanAI is built for real people, and your voice matters as we grow and improve. Feel free to use the form or, if you’d like to discuss a project, collaboration, or work opportunity, you can also email me directly:
             </p>
-            <p className="mb-4 font-semibold text-cyan-400">
+            <p className="mb-4 font-neue-machina tracking-wider text-cyan-400">
               <a href="mailto:itistamtran@gmail.com"     
                  className="transition-all duration-300 bg-clip-text text-cyan-400 hover:text-transparent hover:bg-gradient-to-r hover:from-cyan-300 hover:to-blue-700"
               > itistamtran@gmail.com</a>
             </p>           
-            <p className="mb-2">You can also connect with me here:</p>
+            <p className="mb-2 font-neue-machina tracking-wider">You can also connect with me here:</p>
             <div className="flex gap-4 text-xl text-cyan-300">
               <a href="https://github.com/itistamtran" target="_blank" rel="noopener noreferrer"><FaGithub /></a>
               <a href="https://www.linkedin.com/in/tamtran-/" target="_blank" rel="noopener noreferrer"><FaLinkedin /></a>
@@ -172,15 +172,15 @@ export default function Contact() {
               >
                 Send Message
               </button>
-              {submitted && <p className="mt-4 text-sm font-semibold text-cyan-300">Your message has been sent!</p>}
-              {error && <p className="mt-4 text-sm font-semibold text-red-400">Something went wrong. Please try again.</p>}
+              {submitted && <p className="mt-4 text-sm font-neue-machina-bold tracking-wider text-cyan-300">Your message has been sent!</p>}
+              {error && <p className="mt-4 text-sm font-neue-machina-bold tracking-wider text-red-400">Something went wrong. Please try again.</p>}
             </form>
           </div>
         </div>
 
         {/* Location and Timezone - moved here */}
         <div className="mt-16">
-          <h4 className="mb-2 text-lg font-bold">📍 Orange County, California, USA</h4>
+          <h4 className="mb-2 text-lg font-neue-machina-bold tracking-wider">📍 Orange County, California, USA</h4>
           <iframe
             title="Orange County, California Map"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d423286.27407637436!2d-118.69193024700598!3d33.7174708!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80dc925c54d5f7cf%3A0xdea6c3618ff0d607!2sOrange%20County%2C%20CA!5e0!3m2!1sen!2sus!4v1716760031873!5m2!1sen!2sus"
