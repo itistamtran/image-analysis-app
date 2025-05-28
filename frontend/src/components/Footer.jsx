@@ -21,35 +21,11 @@ export default function Footer() {
         <p className="text-xs opacity-80">© 2025 Tam Tran. All rights reserved.</p>
 
         {/* Right side: Social icons */}
-        <div className="flex gap-5 text-lg text-cyan-300">
-          <a
-            href="https://github.com/itistamtran"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition duration-200 hover:text-white"
-            aria-label="GitHub"
-          >
-            <FaGithub />
-          </a>
-          <a
-            href="https://www.linkedin.com/in/tamtran-/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition duration-200 hover:text-white"
-            aria-label="LinkedIn"
-          >
-            <FaLinkedin />
-          </a>
-          <a
-            href="https://tamtran.vercel.app/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition duration-200 hover:text-white"
-            aria-label="Portfolio"
-          >
-            <FaGlobe />
-          </a>
-        </div>
+        <div className="flex gap-6 text-xl text-cyan-300">
+              <a href="https://github.com/itistamtran" target="_blank" rel="noopener noreferrer"><FaGithub /></a>
+              <a href="https://www.linkedin.com/in/tamtran-/" target="_blank" rel="noopener noreferrer"><FaLinkedin /></a>
+              <a href="https://tamtran.vercel.app/" target="_blank" rel="noopener noreferrer"><FaGlobe /></a>
+            </div>
       </Box>
     </footer>
   );
