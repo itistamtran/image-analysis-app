@@ -4,6 +4,12 @@ This is a full-stack web application that allows users to upload MRI brain image
 
 ---
 
+## 🌀 Project Demo
+
+![MedScanAI Demo](frontend/public/medscanai-demo.gif)
+
+---
+
 ## 🚀 Features
 
 - 📤 Upload MRI images through a web interface
