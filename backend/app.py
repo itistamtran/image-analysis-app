@@ -3,8 +3,7 @@ from flask_cors import CORS
 from model import predict_image
 
 app = Flask(__name__)
-CORS(app)
-
+CORS(app, resources={r"/predict": {"origins": "*"}})
 
 @app.route('/predict', methods=['POST'])
 def predict():
