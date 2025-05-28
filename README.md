@@ -22,11 +22,17 @@ This is a full-stack web application that allows users to upload MRI brain image
 
 ## 🧱 Project Structure
 
-- `app/` – Flask or frontend code (React, etc.)
-- `model/` – Trained Keras model `.keras`
+- `backend/` – Flask API backend
+  - `model/` – Trained Keras model `.keras`
+  - `app.py/` - Main Flask application
+  - `requirements.txt` - Python dependencies
+- `frontend/` - React frontend
+  - `public/` - Public assets
+  - `src/`
+      - `assets/` - Icons, images, and other static assets
+      - `components/` - Reusable UI components (Header, Footer, etc.)
+      - `pages/` - # Route-level components (Home, Upload, Result, etc.)
 - `notebooks/` – [Jupyter notebooks](https://github.com/itistamtran/cnn-brain-tumor-detection-binary-multiclass) for training, testing, and analysis
-- `static/` – Assets like icons, images
-- `templates/` – HTML templates for rendering results
 
 ---
 
