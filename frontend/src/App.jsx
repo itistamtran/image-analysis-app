@@ -4,10 +4,12 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Upload from './pages/Upload';
 import Result from './pages/Result';
+import CustomCursor from './components/CustomCursor';
 
 function App() {
   return (
     <Router>
+      <CustomCursor />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
