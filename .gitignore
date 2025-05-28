@@ -1,0 +1,15 @@
+# Root-level ignore
+.env
+__pycache__/
+*.pyc
+
+# Frontend ignore
+/frontend/node_modules
+/frontend/dist
+/frontend/dist-ssr
+/frontend/*.log
+
+# Editor settings
+.vscode/
+.idea/
+.DS_Store
