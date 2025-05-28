@@ -4,3 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
+body, a, button {
+  cursor: none !important;
+}
