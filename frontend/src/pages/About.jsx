@@ -14,7 +14,7 @@ export default function About() {
       className="relative flex flex-col min-h-screen text-white bg-center bg-cover"
       style={{ backgroundImage: "url('/bg-gradient.jpg')" }}
     >
-      <div className="absolute inset-0 z-0 bg-black/30" />
+      <div className="absolute inset-0 z-0 bg-black/30 pointer-events-none" />
 
       <Header />
 
