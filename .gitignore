@@ -1,15 +1,47 @@
-# Root-level ignore
+# === Python backend ===
+
 .env
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.log
 
-# Frontend ignore
-/frontend/node_modules
-/frontend/dist
-/frontend/dist-ssr
+# Ignore model files and large artifacts
+vit_brain_tumor_best_model/
+*.zip
+*.h5
+*.pt
+*.pth
+*.onnx
+*.keras
+*.ckpt
+
+# === Node frontend ===
+
+/frontend/node_modules/
+/frontend/dist/
+/frontend/dist-ssr/
+/frontend/.next/
+/frontend/out/
 /frontend/*.log
 
-# Editor settings
+# === OS generated files ===
+
+.DS_Store
+Thumbs.db
+
+# === IDE / Editor ===
+
 .vscode/
 .idea/
-.DS_Store
+
+# === Vercel / Railway / Build artifacts ===
+
+.vercel/
+.env.local
+.env.production
+.env.development
+.env.*.local

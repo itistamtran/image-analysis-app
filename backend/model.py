@@ -1,89 +1,70 @@
-import numpy as np
-import tensorflow as tf
-from PIL import Image, ImageOps
+import os
 import io
+import zipfile
+import gdown
+import torch
+from PIL import Image
+from transformers import ViTForImageClassification, ViTImageProcessor
 
-# Load the trained model
-model = tf.keras.models.load_model("model/brain_tumor_cnn_multiclass_model.keras")
+# Model download + setup
+model_dir = "./vit_brain_tumor_best_model"
+model_zip = "vit_brain_tumor_best_model.zip"
 
-# Define class labels in the correct order
-CLASS_NAMES = ['No Tumor', 'Glioma', 'Meningioma', 'Pituitary']
+# Download model from drive
+if not os.path.exists(model_dir):
+    file_id = "1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+    url = f"https://drive.google.com/uc?id={file_id}"
 
-# --- MRI Validity Check ---
-def is_valid_mri(image: Image.Image) -> bool:
-    np_img = np.array(image)
+    print("Downloading model from Google Drive...")
+    gdown.download(url, model_zip, quiet=False)
 
-    # Check size
-    if np_img.shape[:2] != (240, 240):
-        return False
+    print("Extracting model...")
+    with zipfile.ZipFile(model_zip, 'r') as zip_ref:
+        zip_ref.extractall(".")
+    print("Model ready.")
 
-    # Check grayscale similarity if 3 channels
-    if len(np_img.shape) == 3 and np_img.shape[2] == 3:
-        # Validate approximate grayscale (R ≈ G ≈ B)
-        if not (
-            np.allclose(np_img[:, :, 0], np_img[:, :, 1], atol=15) and
-            np.allclose(np_img[:, :, 1], np_img[:, :, 2], atol=15)
-        ):
-            return False
+# Load model + processor
+model = ViTForImageClassification.from_pretrained(model_dir)
+processor = ViTImageProcessor.from_pretrained(model_dir)
+model.eval()
 
-    return True
+# Move model to device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
 
+# Class name
+CLASS_NAMES = ['glioma', 'meningioma', 'no_tumor', 'pituitary', 'unknown']
+
+# Prediction function
 def predict_image(file_bytes, debug=False):
     try:
-        # Load and preprocess the image
-        image = Image.open(io.BytesIO(file_bytes)).convert('RGB')
-        image = ImageOps.autocontrast(image)
+        # Load image from bytes
+        image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+        
+        # ViT processor handle resizing, normalization, etc
+        inputs = processor(images=image, return_tensors="pt").to(device)
 
-        # Simulate grayscale in RGB
-        image = image.convert('L').convert('RGB')  # simulate grayscale look
-        # Ensure the image is in RGB format
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-    
-        # Center crop to square before resizing
-        width, height = image.size
-        min_dim = min(width, height)
-        left = (width - min_dim) / 2
-        top = (height - min_dim) / 2
-        right = (width + min_dim) / 2
-        bottom = (height + min_dim) / 2
-        image = image.crop((left, top, right, bottom))
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            probs = torch.nn.functional.softmax(logits, dim=-1).cpu().numpy()[0]
 
-        image = image.resize((240, 240))
-
-        if debug:
-            print("Image shape after resize:", image.size)
-            
-        #if not is_valid_mri(image):
-        if not is_valid_mri(image):
-            if debug:
-                print("Invalid MRI: grayscale similarity or size check failed.")
-            return 'Unknown', None, None
-    
-        print("Original size:", image.size)
-        print("After crop and resize:", image.size)
-        print("Checking grayscale similarity...")
-    
-        # Convert to array and normalize
-        image_array = tf.keras.utils.img_to_array(image) / 255.0
-        image_array = np.expand_dims(image_array, axis=0)
-
-        prediction = model.predict(image_array)
-        confidence = float(np.max(prediction))
-        predicted_class = CLASS_NAMES[np.argmax(prediction)]
+        predicted_idx = probs.argmax()
+        confidence = float(probs[predicted_idx])
+        predicted_class = CLASS_NAMES[predicted_idx]
 
         if debug:
             print("Prediction:", predicted_class)
             print("Confidence:", confidence)
-    
-        # Confidence threshold
-        if confidence < 0.7:
-            return 'Unknown', confidence, prediction.tolist()[0]  
+            print("Probabilities:", probs.tolist())
 
-        return predicted_class, confidence, prediction.tolist()[0]
-    
+        # Handle uncertain predictions
+        if confidence < 0.7:
+            return 'LowConfidence', confidence, probs.tolist()
+
+        return predicted_class, confidence, probs.tolist()
+
     except Exception as e:
         if debug:
             print("Prediction failed:", e)
         return 'Error', None, None
-
