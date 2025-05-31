@@ -105,7 +105,7 @@ export default function Contact() {
               Get in <Box component="span" sx={{ color: '#5de0e6', fontWeight: 'bold' }}>Touch</Box>
             </Typography>
             <p className="mb-4 text-sm text-white md:text-base font-neue-machina tracking-wider">
-              Whether you have a question, feedback, or just want to say hello — I’d love to hear from you. MedScanAI is built for real people, and your voice matters as we grow and improve. Feel free to use the form or, if you’d like to discuss a project, collaboration, or work opportunity, you can also email me directly:
+              Whether you have a question, feedback, or just want to say hello — I’d love to hear from you. MedScanAI is built for real people, and your voice matters as we grow and improve. Feel free to reach out using the form, or if you'd like to discuss a project, collaboration, or work opportunity, you can email me directly at:
             </p>
             <p className="mb-4 font-neue-machina tracking-wider text-cyan-400">
               <a href="mailto:itistamtran@gmail.com"     
@@ -124,10 +124,11 @@ export default function Contact() {
           <div className="md:w-[45%] bg-gradient-to-br from-cyan-500/30 to-blue-700/30 backdrop-blur-md p-6 rounded-xl">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block mb-1 text-sm font-semibold text-white">Name</label>
+                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Name</label>
                 <input
                   type="text"
                   name="name"
+                  placeholder="Your Name" 
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -135,10 +136,11 @@ export default function Contact() {
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm font-semibold text-white">Email</label>
+                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Email</label>
                 <input
                   type="email"
                   name="email"
+                  placeholder="your@email.com"
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -147,9 +149,10 @@ export default function Contact() {
                 {emailError && <p className="mt-1 text-sm font-medium text-red-400">{emailError}</p>}
               </div>
               <div>
-                <label className="block mb-1 text-sm font-semibold text-white">Message</label>
+                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Message</label>
                 <textarea
                   name="message"
+                  placeholder="Write your message here..."
                   value={formData.message}
                   onChange={handleChange}
                   rows="5"
@@ -168,6 +171,8 @@ export default function Contact() {
                   backgroundImage: 'linear-gradient(#0f172a, #0f172a), linear-gradient(to right, #5de0e6, #004aad)',
                   backgroundOrigin: 'border-box',
                   backgroundClip: 'padding-box, border-box',
+                  fontFamily: 'Neue Machina Bold, sans-serif',
+                  letterSpacing: '0.05em',
                 }}
               >
                 Send Message
@@ -188,9 +193,9 @@ export default function Contact() {
             height="300"
             allowFullScreen=""
             loading="lazy"
-            className="border rounded-lg border-cyan-500"
+            className="border rounded-lg font-neue-machina tracking-wider"
           ></iframe>
-          <p className="mt-2 text-sm">🕒 Time Zone: Pacific Time (UTC -08:00)</p>
+          <p className="mt-2 text-sm font-neue-machina tracking-wider">🕒 Time Zone: Pacific Time (UTC -08:00)</p>
         </div>
       </main>
       <Footer />

@@ -18,7 +18,7 @@ export default function Footer() {
         }}
       >
         {/* Left side: Copyright */}
-        <p className="text-xs opacity-80">© 2025 Tam Tran. All rights reserved.</p>
+        <p className="text-sm text-white">© 2025 Tam Tran. All rights reserved.</p>
 
         {/* Right side: Social icons */}
         <div className="flex gap-6 text-xl text-cyan-300">

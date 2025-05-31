@@ -12,15 +12,12 @@ export default function Header() {
       <div className="flex items-center justify-between">
         {/* Logo */}
         <Link to="/">
-  <img
-    src="/logo-MedScanAI.png"
-    alt="MedScanAI Logo"
-className="w-24 h-auto filter drop-shadow-[0_0_2px_rgba(255,255,255,0.2)]"
-  />
-</Link>
-
-
-
+          <img
+          src="/logo-MedScanAI.png"
+          alt="MedScanAI Logo"
+          className="w-24 h-auto filter drop-shadow-[0_0_2px_rgba(255,255,255,0.2)]"
+        />
+        </Link>
 
         {/* Hamburger icon on small screens */}
         <button

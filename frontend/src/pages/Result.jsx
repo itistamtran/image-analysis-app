@@ -44,7 +44,27 @@ const tumorDetails = {
       "Continue regular check-ups if symptoms persist.",
       "Consult a healthcare provider for further evaluation if needed."
     ]
-  }
+  },
+  "Unknown": {
+    title: "Unable to Analyze Image",
+    description:
+      "The uploaded image could not be classified as a brain tumor type. This may happen if the image format is incorrect, the image quality is too low, or if a non-MRI image was uploaded.",
+    bullets: [
+      "Make sure you are uploading a valid MRI brain scan image.",
+      "Check image resolution and ensure brain structures are visible.",
+      "For medical concerns, always consult a healthcare provider."
+    ]
+  },
+  "Unclear": {
+  title: "Unable to confidently predict",
+  description: "The image was unclear or uncertain for prediction.",
+  bullets: [
+    "Please check the uploaded MRI image quality.",
+    "Consider uploading a higher resolution MRI scan.",
+    "Consult a healthcare provider for further evaluation."
+  ]
+}
+
 };
 
 export default function ResultPage() {
@@ -53,14 +73,18 @@ export default function ResultPage() {
   const { prediction, confidence, imageFile } = location.state || {};
   const imageUrl = imageFile ? URL.createObjectURL(imageFile) : null;
 
-  const info = tumorDetails[prediction];
+  const normalizedPrediction = prediction
+    ? prediction.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    : '';
 
-  if (!prediction || !info) {
+  const info = tumorDetails[normalizedPrediction];
+
+  if (!info) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-red-500 bg-black">
         <p className="text-lg">No result found. Please upload an image.</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/Upload')}
           className="px-6 py-2 mt-6 text-white rounded bg-cyan-600 hover:bg-cyan-500"
         >
           Back to Upload
@@ -69,20 +93,14 @@ export default function ResultPage() {
     );
   }
 
+  // condition for tumor types vs no-tumor types
+  const isTumorType = ["Glioma", "Meningioma", "Pituitary"].includes(normalizedPrediction);
+
   return (
     <div className="relative flex flex-col min-h-screen text-white">
-      <div
-        className="fixed inset-0 bg-center bg-cover -z-20"
-        style={{ backgroundImage: "url('/bg-gradient.jpg')" }}
-      />
+      <div className="fixed inset-0 bg-center bg-cover -z-20" style={{ backgroundImage: "url('/bg-gradient.jpg')" }} />
       <div className="fixed inset-0 pointer-events-none -z-10">
-        <video
-          className="object-cover w-full h-full opacity-80 blur-md"
-          autoPlay
-          muted
-          loop
-          playsInline
-        >
+        <video className="object-cover w-full h-full opacity-80 blur-md" autoPlay muted loop playsInline>
           <source src="/bg-video-1.mp4" type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/30" />
@@ -92,84 +110,90 @@ export default function ResultPage() {
         <Header />
       </div>
 
-      <main className="relative z-10 flex flex-col items-center justify-center flex-grow px-4 py-16 text-left">
-        <Typography
-          variant="h3"
-          component="h1"
-          sx={{
+      <main className="relative z-10 flex justify-center flex-grow px-4 py-16">
+        <div className="flex flex-col w-full max-w-4xl">
+          <Typography variant="h3" component="h1" sx={{
             fontWeight: 'bold',
             fontFamily: 'Neue Machina, sans-serif',
             mb: 6,
             textAlign: 'center',
             letterSpacing: '0.15em',
             fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' }
-          }}
-        >
-          <Box
-            component="span"
-            sx={{
+          }}>
+            <Box component="span" sx={{
               background: 'linear-gradient(to right, #5de0e6, #004aad)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               display: 'inline',
               fontWeight: 'bold'
-            }}
-          >
-            Scan
-          </Box>{' '}Result
-        </Typography>
+            }}>
+              Scan
+            </Box>{' '}Result
+          </Typography>
 
-        <div className="flex flex-col items-start max-w-4xl gap-8 mb-10 md:flex-row">
-          <div className="flex-1">
-            <h2 className="mb-2 text-lg tracking-wider text-cyan-300 font-neue-machina-bold">
-              {info.title}
-            </h2>
-            {confidence && (
-              <p className="mb-4 text-base tracking-wider text-cyan-500 font-neue-machina">
-                Confidence: {(confidence * 100).toFixed(2)}%
-              </p>
-            )}
+          {/* Shared layout for both types */}
+          <div className="flex flex-col gap-8 mb-10 md:flex-row">
+            <div className="flex-1">
+              <h2 className="mb-2 text-lg tracking-wider text-cyan-300 font-neue-machina-bold">
+                {info.title}
+              </h2>
 
-            <p className="mb-4 text-base tracking-wider text-gray-300 font-neue-machina">
-              {info.description}
-            </p>
+              {confidence && prediction !== "Unknown" && (
+                <p className="mb-4 text-base tracking-wider text-cyan-500 font-neue-machina">
+                  Confidence: {(confidence * 100).toFixed(2)}%
+                </p>
+              )}
+
+              <p className="mb-4 text-base tracking-wider text-white font-neue-machina">{info.description}</p>
+
+              {/* bullets only shown here for no-tumor & unknown */}
+              {!isTumorType && (
+                <div className="space-y-2 leading-normal text-left text-white font-neue-machina">
+                  {info.bullets.map((point, idx) => (
+                    <p key={idx}>{point.replace(/:$/, '').trim()}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-shrink-0">
+              <img
+                src={imageUrl || '/sample-mri.png'}
+                alt="User MRI Scan"
+                className="max-w-[240px] max-h-[240px] w-auto h-auto rounded shadow-lg"
+              />
+            </div>
           </div>
 
-          <div className="flex-shrink-0">
-            <img
-              src={imageUrl || '/sample-mri.png'}
-              alt="User MRI Scan"
-              className="max-w-[240px] max-h-[240px] w-auto h-auto  rounded shadow-lg"
-            />
+          {/* bullets for tumor types below full-width */}
+          {isTumorType && (
+            <div className="space-y-4 leading-normal text-left text-white font-neue-machina">
+              {info.bullets.map((point, idx) => {
+                const [label, ...contentParts] = point.split(':');
+                const content = contentParts.join(':').trim();
+                return (
+                  <div key={idx}>
+                    <p className="font-semibold text-cyan-400">{label.trim()}:</p>
+                    <p className="mt-1">{content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex justify-center">
+            <button
+              onClick={() => navigate('/Upload')}
+              className="px-6 py-2 mt-10 tracking-wider text-white rounded-lg font-neue-machina-bold bg-gradient-to-r from-cyan-400 to-blue-700 hover:opacity-90"
+            >
+              Upload Another Image
+            </button>
           </div>
+
+          <p className="max-w-4xl mt-10 tracking-wider text-white font-neue-machina">
+            <span className="text-cyan-300">Important:</span> MedScanAI provides AI-generated predictions and may not always be accurate. Results should not be considered medical advice. Please consult with a qualified healthcare provider for an official diagnosis and treatment plan.
+          </p>
         </div>
-
-        {/* Description */}
-        <div className="max-w-4xl space-y-6 tracking-wider font-neue-machina">
-          {info.bullets.map((point, idx) => {
-            const [label, ...contentParts] = point.split(':');
-            const content = contentParts.join(':');
-
-            return (
-              <div key={idx} className="mb-6">
-                <p className="font-semibold text-cyan-400 font-neue-machina">{label.trim()}:</p>
-                <p className="mt-2 leading-relaxed text-gray-200 font-neue-machina">{content.trim()}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Button Upload Another Image */}
-        <button
-          onClick={() => navigate('/Upload')}
-          className="px-6 py-2 mt-10 tracking-wider text-white rounded-lg font-neue-machina-bold bg-gradient-to-r from-cyan-400 to-blue-700 hover:opacity-90"
-        >
-          Upload Another Image
-        </button>
-
-        <p className="max-w-4xl mt-10 tracking-wider text-white text-re font-neue-machina">
-          <span className=" text-cyan-300">Important:</span> MedScanAI provides AI-generated predictions and may not always be accurate. Results should not be considered medical advice. Please consult with a qualified healthcare provider for an official diagnosis and treatment plan.
-        </p>
       </main>
 
       <div className="relative z-10">

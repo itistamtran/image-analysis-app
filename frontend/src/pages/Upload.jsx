@@ -14,9 +14,13 @@ export default function UploadPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const VALID_CLASSES = ['glioma', 'meningioma', 'pituitary', 'no_tumor', 'unknown'];
+
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
     setError('');
+    setPrediction('');
+    setConfidence(null);
   };
 
   const handleUpload = async () => {
@@ -42,9 +46,10 @@ export default function UploadPage() {
       setPrediction(result);
       setConfidence(conf);
 
-      if (result === 'Unknown') {
+      if (result === 'LowConfidence') {
         return; // Stay on Upload page to show the warning
       }
+    
       // Navigate to Result page with prediction data      
       navigate('/result', {
         state: {
@@ -149,22 +154,21 @@ export default function UploadPage() {
 
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
-        {prediction === 'Unknown' && (
+        {prediction === 'LowConfidence' && (
           <p className="mt-6 text-sm text-red-400">
-            ⚠️ The confidence score is {confidence ? (confidence * 100).toFixed(2) : 'N/A'}%, which is lower than the required threshold (70%).<br />
-            This image is not recognized as a valid brain MRI scan.
+            ⚠️ The model is not confident enough to make a prediction.<br />
+            Confidence: {confidence ? (confidence * 100).toFixed(2) : 'N/A'}%<br />
+            Please try uploading a different or higher quality MRI image.
           </p>
         )}
 
-        {prediction && prediction !== 'Unknown' && (
+        {VALID_CLASSES.includes(prediction?.toLowerCase()) && (
           <p className="mt-6 text-lg font-medium text-cyan-300">
             🧠 Result: {prediction}<br />
             Confidence: {(confidence * 100).toFixed(2)}%
           </p>
         )}
-
-
-
+        
       </main>
 
       <div className="relative z-10">
