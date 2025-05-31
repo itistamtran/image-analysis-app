@@ -1,4 +1,5 @@
 {
-  "buildCommand": "pip install -r backend/requirements.txt",
-  "startCommand": "gunicorn backend.app:app --bind 0.0.0.0:$PORT"
+  "buildCommand": "cd backend && pip install -r requirements.txt",
+  "startCommand": "gunicorn app:app --bind 0.0.0.0:$PORT",
+  "rootDirectory": "backend"
 }
