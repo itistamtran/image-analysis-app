@@ -1,31 +1,15 @@
 import os
 import io
-import zipfile
-import gdown
 import torch
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 
-# Model download + setup
-model_dir = "./vit_brain_tumor_best_model"
-model_zip = "vit_brain_tumor_best_model.zip"
-
-# Download model from drive
-if not os.path.exists(model_dir):
-    file_id = "1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
-    url = f"https://drive.google.com/uc?id={file_id}"
-
-    print("Downloading model from Google Drive...")
-    gdown.download(url, model_zip, quiet=False)
-
-    print("Extracting model...")
-    with zipfile.ZipFile(model_zip, 'r') as zip_ref:
-        zip_ref.extractall(".")
-    print("Model ready.")
+# Load model directly from Hugging Face
+model_id = "itistamtran/vit_brain_tumor_best_model"
 
 # Load model + processor
-model = ViTForImageClassification.from_pretrained(model_dir)
-processor = ViTImageProcessor.from_pretrained(model_dir)
+model = ViTForImageClassification.from_pretrained(model_id)
+processor = ViTImageProcessor.from_pretrained(model_id)
 model.eval()
 
 # Move model to device
