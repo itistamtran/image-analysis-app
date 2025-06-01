@@ -3,11 +3,33 @@ import io
 import torch
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
+import zipfile
+import requests
 
-# Set path to local model directory inside backend/model/
-model_dir = os.path.join("model", "vit_brain_tumor_best_model")
+# Model directory and zip path
+model_dir = "backend/model/vit_brain_tumor_best_model"
+model_zip = "backend/model/vit_brain_tumor_best_model.zip"
 
-# Load model + processor from local directory
+# Google Drive direct download link
+url = "https://drive.google.com/uc?export=download&id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+
+# Only download if not exist
+if not os.path.exists(model_dir):
+    os.makedirs("backend/model", exist_ok=True)
+    print("Model not found, downloading from Google Drive...")
+
+    response = requests.get(url, stream=True)
+    with open(model_zip, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+
+    print("Extracting model...")
+    with zipfile.ZipFile(model_zip, 'r') as zip_ref:
+        zip_ref.extractall("backend/model/")
+
+    print("Model downloaded and extracted successfully!")
+
+# Load model after download
 model = ViTForImageClassification.from_pretrained(model_dir)
 processor = ViTImageProcessor.from_pretrained(model_dir)
 model.eval()
