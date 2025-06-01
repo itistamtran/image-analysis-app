@@ -2,18 +2,9 @@ import os
 import io
 import torch
 from PIL import Image
-from transformers import ViTForImageClassification, ViTImageProcessor, HfFolder, login
+from transformers import ViTForImageClassification, ViTImageProcessor
 
-# Read Hugging Face token from environment variable
-hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")
-
-# If token is found, login to Hugging Face Hub
-if hf_token:
-    login(hf_token)
-else:
-    print("Warning: HUGGINGFACE_HUB_TOKEN not found. Trying without auth...")
-
-# Load model directly from Hugging Face
+# Load model directly from Hugging Face (public, no token needed)
 model_id = "itistamtran/vit_brain_tumor_best_model"
 
 # Load model + processor
@@ -25,16 +16,13 @@ model.eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
-# Class name
+# Class names
 CLASS_NAMES = ['glioma', 'meningioma', 'no_tumor', 'pituitary', 'unknown']
 
 # Prediction function
 def predict_image(file_bytes, debug=False):
     try:
-        # Load image from bytes
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-        
-        # ViT processor handle resizing, normalization, etc
         inputs = processor(images=image, return_tensors="pt").to(device)
 
         with torch.no_grad():
@@ -51,7 +39,6 @@ def predict_image(file_bytes, debug=False):
             print("Confidence:", confidence)
             print("Probabilities:", probs.tolist())
 
-        # Handle uncertain predictions
         if confidence < 0.7:
             return 'LowConfidence', confidence, probs.tolist()
 
