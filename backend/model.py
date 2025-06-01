@@ -4,7 +4,8 @@ import torch
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 import zipfile
-import requests
+import gdown
+
 
 # Model directory and zip path
 model_dir = "backend/model/vit_brain_tumor_best_model"
@@ -18,10 +19,8 @@ if not os.path.exists(model_dir):
     os.makedirs("backend/model", exist_ok=True)
     print("Model not found, downloading from Google Drive...")
 
-    response = requests.get(url, stream=True)
-    with open(model_zip, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+    file_id = "1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+    gdown.download(f"https://drive.google.com/uc?id={file_id}", model_zip, quiet=False)
 
     print("Extracting model...")
     with zipfile.ZipFile(model_zip, 'r') as zip_ref:
