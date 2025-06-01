@@ -4,15 +4,15 @@ import torch
 from PIL import Image
 from transformers import ViTForImageClassification, ViTImageProcessor
 
-# Load model directly from Hugging Face (public, no token needed)
-model_id = "itistamtran/vit_brain_tumor_best_model"
+# Set path to local model directory inside backend/model/
+model_dir = os.path.join("model", "vit_brain_tumor_best_model")
 
-# Load model + processor
-model = ViTForImageClassification.from_pretrained(model_id)
-processor = ViTImageProcessor.from_pretrained(model_id)
+# Load model + processor from local directory
+model = ViTForImageClassification.from_pretrained(model_dir)
+processor = ViTImageProcessor.from_pretrained(model_dir)
 model.eval()
 
-# Move model to device
+# Move model to device (use CPU on Railway to avoid OOM)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
