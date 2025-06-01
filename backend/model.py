@@ -2,7 +2,16 @@ import os
 import io
 import torch
 from PIL import Image
-from transformers import ViTForImageClassification, ViTImageProcessor
+from transformers import ViTForImageClassification, ViTImageProcessor, HfFolder, login
+
+# Read Hugging Face token from environment variable
+hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")
+
+# If token is found, login to Hugging Face Hub
+if hf_token:
+    login(hf_token)
+else:
+    print("Warning: HUGGINGFACE_HUB_TOKEN not found. Trying without auth...")
 
 # Load model directly from Hugging Face
 model_id = "itistamtran/vit_brain_tumor_best_model"
