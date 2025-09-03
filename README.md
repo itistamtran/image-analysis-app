@@ -4,23 +4,23 @@ This is a full-stack web application that allows users to upload MRI brain image
 
 ---
 
-## 🌀 Project Demo
+## Project Demo
 
 ![MedScanAI Demo](frontend/public/medscanai-demo.gif)
 
 ---
 
-## 🚀 Features
+## Features
 
-- 📤 Upload MRI images through a web interface
-- 🧠 Predict tumor presence and type using a ViT model
-- 📈 Display confidence score with brief diagnostic explanation
-- 🖼️ (Coming Soon) Grad-CAM heatmap for interpretability
-- 🔐 All processing is done locally; images are not stored
+- Upload MRI images through a web interface
+- Predict tumor presence and type using a ViT model
+- Display confidence score with brief diagnostic explanation
+- (Coming Soon) Grad-CAM heatmap for interpretability
+- All processing is done locally; images are not stored
 
 ---
 
-## 🧱 Project Structure
+## Project Structure
 
 - `backend/` – Flask API backend
   - `model/` – Trained Keras model `.keras`
@@ -37,7 +37,7 @@ This is a full-stack web application that allows users to upload MRI brain image
 
 ---
 
-## 🧠 Model Overview
+## Model Overview
 
 This project uses a convolutional neural network (CNN) to classify MRI brain scans into four categories:
 - **Glioma**
@@ -83,12 +83,12 @@ The model demonstrates strong generalization without overfitting.
 
 ---
 
-## 📦 Dataset Source
+## Dataset Source
 
 - [Kaggle: Brain MRI Images for Brain Tumor Detection](https://www.kaggle.com/datasets/navoneel/brain-mri-images-for-brain-tumor-detection)
 
 ---
 
-## 👤 Author
+## Author
 
 **Tam Tran**  
