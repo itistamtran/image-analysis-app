@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import axios from 'axios';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import { useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import API_BASE from "../utils/config";
+
+
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [prediction, setPrediction] = useState('');
-  const [confidence, setConfidence] = useState(null); 
+  const [confidence, setConfidence] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -24,6 +27,8 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
+    const user = JSON.parse(localStorage.getItem("user") || "null");
+
     if (!file) {
       setError('No file chosen');
       return;
@@ -31,52 +36,74 @@ export default function UploadPage() {
 
     const formData = new FormData();
     formData.append('image', file);
+    if (user) {
+      formData.append("user_id", user.id); // only if logged in
+    }
 
     setLoading(true);
     try {
-      const response = await axios.post('https://flask-api-production-f9b2.up.railway.app/predict', formData, {
+      const response = await axios.post(`${API_BASE}/predict`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-    });
+      });
 
-      const result = response.data.prediction;
-      const conf = response.data.confidence;
+      const { id, result, confidence: conf, image_url, heatmap_url = null, created_at } = response.data;
+
+      if (!heatmap_url) {
+        console.warn("No heatmap generated for this scan.");
+      }
 
       setPrediction(result);
       setConfidence(conf);
 
-      if (result === 'LowConfidence') {
-        return; // Stay on Upload page to show the warning
+      // Save prediction only if logged in
+      if (user) {
+        let storedScans = JSON.parse(localStorage.getItem("scans") || "[]");
+        storedScans.unshift({
+          id,
+          result,
+          confidence: conf,
+          image_url,
+          heatmap_url,
+          created_at: new Date().toISOString()
+        });
+        localStorage.setItem("scans", JSON.stringify(storedScans));
+
+        // Notify dashboard to refresh
+        window.dispatchEvent(new Event("scansUpdated"));
       }
-    
-      // Navigate to Result page with prediction data      
+
+      if (result === 'LowConfidence') {
+        return;
+      }
+
+      // Navigate to Result page with prediction data
       navigate('/result', {
         state: {
           prediction: result,
           confidence: conf,
-          imageFile: file
+          image_url,
+          heatmap_url,
         }
       });
-    
+
     } catch (err) {
-        console.error(err);
-        let msg = 'Unknown error';
-
-        if (err.response?.data) {
-          msg = JSON.stringify(err.response.data, null, 2); // Pretty-print response
-        } else if (err.message) {
-          msg = err.message;
-        } else {
-          msg = JSON.stringify(err, null, 2);
-        }
-
-        setError('Server error:\n' + msg);
+      console.error(err);
+      let msg = 'Unknown error';
+      if (err.response?.data) {
+        msg = JSON.stringify(err.response.data, null, 2);
+      } else if (err.message) {
+        msg = err.message;
+      } else {
+        msg = JSON.stringify(err, null, 2);
       }
-        finally {
-          setLoading(false);
+      setError('Server error:\n' + msg);
+    } finally {
+      setLoading(false);
     }
   };
+
 
   return (
     <div className="relative flex flex-col min-h-screen text-white">
@@ -113,7 +140,7 @@ export default function UploadPage() {
           sx={{
             fontWeight: 'bold',
             fontFamily: 'Neue Machina, sans-serif',
-            mb: 10,
+            mb: 8,
             textAlign: 'center',
             letterSpacing: '0.15em',
             fontSize: { xs: '2.5rem', sm: '3rem', md: '3.5rem' },
@@ -129,10 +156,20 @@ export default function UploadPage() {
               fontWeight: 'bold',
             }}
           >
-            Upload 
+            Upload
           </Box>{' '}
           MRI Image
         </Typography>
+
+        {!localStorage.getItem("user") && (
+          <p className="max-w-md mb-8 text-sm tracking-wider text-center text-cyan-300 font-neue-machina">
+            💡 <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">Tip:</span> You can upload an MRI image as a guest,
+            but if you <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">log in</span>,
+            your scans will be saved in your dashboard and you’ll also see
+            the <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">AI-generated heatmap</span> for each prediction.
+          </p>
+        )}
+
         <label className="relative inline-block w-full max-w-md mb-4">
           <input
             type="file"
@@ -140,22 +177,22 @@ export default function UploadPage() {
             onChange={handleFileChange}
             className="sr-only"
           />
-          <div className="flex items-center justify-center w-full h-12 px-4 font-bold text-white border-2 rounded-lg cursor-pointer bg-black/50 border-cyan-500">
+          <div className="flex items-center justify-center w-full h-12 px-4 tracking-wider text-white border-2 rounded-lg cursor-pointer font-neue-machina bg-black/50 border-cyan-500">
             {file ? file.name : 'Choose File'}
           </div>
         </label>
 
         <button
           onClick={handleUpload}
-          className="w-full max-w-md px-6 py-3 font-bold text-white rounded-lg bg-gradient-to-r from-cyan-400 to-blue-700 hover:opacity-90"
+          className="w-full max-w-md px-6 py-3 tracking-wider text-white rounded-lg font-neue-machina-bold bg-gradient-to-r from-cyan-400 to-blue-700 hover:opacity-90"
         >
           {loading ? 'Analyzing...' : 'Predict'}
         </button>
 
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-4 text-sm tracking-wider text-red-400 font-neue-machina">{error}</p>}
 
         {prediction === 'LowConfidence' && (
-          <p className="mt-6 text-sm text-red-400">
+          <p className="mt-6 text-sm tracking-wider text-red-400 font-neue-machina">
             ⚠️ The model is not confident enough to make a prediction.<br />
             Confidence: {confidence ? (confidence * 100).toFixed(2) : 'N/A'}%<br />
             Please try uploading a different or higher quality MRI image.
@@ -163,12 +200,12 @@ export default function UploadPage() {
         )}
 
         {VALID_CLASSES.includes(prediction?.toLowerCase()) && (
-          <p className="mt-6 text-lg font-medium text-cyan-300">
+          <p className="mt-6 text-lg tracking-wider text-cyan-300 font-neue-machina">
             🧠 Result: {prediction}<br />
             Confidence: {(confidence * 100).toFixed(2)}%
           </p>
         )}
-        
+
       </main>
 
       <div className="relative z-10">

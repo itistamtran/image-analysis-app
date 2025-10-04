@@ -104,15 +104,15 @@ export default function Contact() {
             <Typography variant="h5" sx={{ fontFamily: 'Neue Machina, sans-serif', mb: 4 }}>
               Get in <Box component="span" sx={{ color: '#5de0e6', fontWeight: 'bold' }}>Touch</Box>
             </Typography>
-            <p className="mb-4 text-sm text-white md:text-base font-neue-machina tracking-wider">
+            <p className="mb-4 text-sm tracking-wider text-white md:text-base font-neue-machina">
               Whether you have a question, feedback, or just want to say hello — I’d love to hear from you. MedScanAI is built for real people, and your voice matters as we grow and improve. Feel free to reach out using the form, or if you'd like to discuss a project, collaboration, or work opportunity, you can email me directly at:
             </p>
-            <p className="mb-4 font-neue-machina tracking-wider text-cyan-400">
-              <a href="mailto:itistamtran@gmail.com"     
-                 className="transition-all duration-300 bg-clip-text text-cyan-400 hover:text-transparent hover:bg-gradient-to-r hover:from-cyan-300 hover:to-blue-700"
+            <p className="mb-4 tracking-wider font-neue-machina text-cyan-400">
+              <a href="mailto:itistamtran@gmail.com"
+                className="transition-all duration-300 bg-clip-text text-cyan-400 hover:text-transparent hover:bg-gradient-to-r hover:from-cyan-300 hover:to-blue-700"
               > itistamtran@gmail.com</a>
-            </p>           
-            <p className="mb-2 font-neue-machina tracking-wider">You can also connect with me here:</p>
+            </p>
+            <p className="mb-2 tracking-wider font-neue-machina">You can also connect with me here:</p>
             <div className="flex gap-4 text-xl text-cyan-300">
               <a href="https://github.com/itistamtran" target="_blank" rel="noopener noreferrer"><FaGithub /></a>
               <a href="https://www.linkedin.com/in/tamtran-/" target="_blank" rel="noopener noreferrer"><FaLinkedin /></a>
@@ -124,11 +124,11 @@ export default function Contact() {
           <div className="md:w-[45%] bg-gradient-to-br from-cyan-500/30 to-blue-700/30 backdrop-blur-md p-6 rounded-xl">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Name</label>
+                <label className="block mb-1 text-sm tracking-wider text-white font-neue-machina-bold">Name</label>
                 <input
                   type="text"
                   name="name"
-                  placeholder="Your Name" 
+                  placeholder="Your Name"
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -136,7 +136,7 @@ export default function Contact() {
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Email</label>
+                <label className="block mb-1 text-sm tracking-wider text-white font-neue-machina-bold">Email</label>
                 <input
                   type="email"
                   name="email"
@@ -149,7 +149,7 @@ export default function Contact() {
                 {emailError && <p className="mt-1 text-sm font-medium text-red-400">{emailError}</p>}
               </div>
               <div>
-                <label className="block mb-1 text-sm font-neue-machina-bold tracking-wider text-white">Message</label>
+                <label className="block mb-1 text-sm tracking-wider text-white font-neue-machina-bold">Message</label>
                 <textarea
                   name="message"
                   placeholder="Write your message here..."
@@ -177,15 +177,15 @@ export default function Contact() {
               >
                 Send Message
               </button>
-              {submitted && <p className="mt-4 text-sm font-neue-machina-bold tracking-wider text-cyan-300">Your message has been sent!</p>}
-              {error && <p className="mt-4 text-sm font-neue-machina-bold tracking-wider text-red-400">Something went wrong. Please try again.</p>}
+              {submitted && <p className="mt-4 text-sm tracking-wider font-neue-machina-bold text-cyan-300">Your message has been sent!</p>}
+              {error && <p className="mt-4 text-sm tracking-wider text-red-400 font-neue-machina-bold">Something went wrong. Please try again.</p>}
             </form>
           </div>
         </div>
 
-        {/* Location and Timezone - moved here */}
+        {/* Location and Timezone */}
         <div className="mt-16">
-          <h4 className="mb-2 text-lg font-neue-machina-bold tracking-wider">📍 Orange County, California, USA</h4>
+          <h4 className="mb-2 text-lg tracking-wider font-neue-machina-bold">📍 Orange County, California, USA</h4>
           <iframe
             title="Orange County, California Map"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d423286.27407637436!2d-118.69193024700598!3d33.7174708!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80dc925c54d5f7cf%3A0xdea6c3618ff0d607!2sOrange%20County%2C%20CA!5e0!3m2!1sen!2sus!4v1716760031873!5m2!1sen!2sus"
@@ -193,9 +193,9 @@ export default function Contact() {
             height="300"
             allowFullScreen=""
             loading="lazy"
-            className="border rounded-lg font-neue-machina tracking-wider"
+            className="tracking-wider border rounded-lg font-neue-machina"
           ></iframe>
-          <p className="mt-2 text-sm font-neue-machina tracking-wider">🕒 Time Zone: Pacific Time (UTC -08:00)</p>
+          <p className="mt-2 text-sm tracking-wider font-neue-machina">🕒 Time Zone: Pacific Time (UTC -08:00)</p>
         </div>
       </main>
       <Footer />

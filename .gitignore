@@ -1,6 +1,5 @@
 # === Python backend ===
 
-.env
 __pycache__/
 *.pyc
 *.pyo
@@ -8,6 +7,7 @@ __pycache__/
 *.sqlite3
 *.db
 *.log
+migrations/__pycache__/
 
 # Ignore model files and large artifacts
 vit_brain_tumor_best_model/
@@ -18,6 +18,13 @@ vit_brain_tumor_best_model/
 *.onnx
 *.keras
 *.ckpt
+
+# Ignore cache and temp folders
+*.egg-info/
+.cache/
+logs/
+tmp/
+__MACOSX/
 
 # === Node frontend ===
 
@@ -45,3 +52,12 @@ Thumbs.db
 .env.production
 .env.development
 .env.*.local
+.env
+
+# === Secrets / Credentials ===
+
+serviceAccountKey.json
+
+# === macOS metadata ===
+
+*.swp

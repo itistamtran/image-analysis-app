@@ -1,8 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import API_BASE from "../utils/config";
+
 
 const tumorDetails = {
   "Glioma": {
@@ -56,22 +59,38 @@ const tumorDetails = {
     ]
   },
   "Unclear": {
-  title: "Unable to confidently predict",
-  description: "The image was unclear or uncertain for prediction.",
-  bullets: [
-    "Please check the uploaded MRI image quality.",
-    "Consider uploading a higher resolution MRI scan.",
-    "Consult a healthcare provider for further evaluation."
-  ]
-}
+    title: "Unable to confidently predict",
+    description: "The image was unclear or uncertain for prediction.",
+    bullets: [
+      "Please check the uploaded MRI image quality.",
+      "Consider uploading a higher resolution MRI scan.",
+      "Consult a healthcare provider for further evaluation."
+    ]
+  }
 
 };
 
 export default function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { prediction, confidence, imageFile } = location.state || {};
-  const imageUrl = imageFile ? URL.createObjectURL(imageFile) : null;
+  const { prediction, confidence, image_url: backendImageUrl, imageFile, heatmap_url } = location.state || {};
+
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+
+  // Prefer backend URL, fallback to local preview if exists
+  const imageUrl = backendImageUrl
+    ? `${API_BASE}${backendImageUrl}`
+    : (imageFile ? URL.createObjectURL(imageFile) : null);
+
+  // fallback for heatmap
+  const formatUrl = (url) => {
+    if (!url) return null;
+    return url.startsWith('http') ? url : `${API_BASE}${url}`;
+  };
+
+  const heatmapUrl = formatUrl(
+    heatmap_url || user?.last_scan?.heatmap_url
+  );
 
   const normalizedPrediction = prediction
     ? prediction.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -132,7 +151,7 @@ export default function ResultPage() {
           </Typography>
 
           {/* Shared layout for both types */}
-          <div className="flex flex-col gap-8 mb-10 md:flex-row">
+          <div className="flex flex-col-reverse gap-8 mb-10 md:flex-row ">
             <div className="flex-1">
               <h2 className="mb-2 text-lg tracking-wider text-cyan-300 font-neue-machina-bold">
                 {info.title}
@@ -156,12 +175,48 @@ export default function ResultPage() {
               )}
             </div>
 
-            <div className="flex-shrink-0">
-              <img
-                src={imageUrl || '/sample-mri.png'}
-                alt="User MRI Scan"
-                className="max-w-[240px] max-h-[240px] w-auto h-auto rounded shadow-lg"
-              />
+            {/* Right-side image column */}
+            <div className="flex flex-col items-center md:items-end md:w-1/3">
+              {/* Image row on small screens */}
+              <div className="flex justify-center w-full mb-6 space-x-6 md:flex-col md:space-x-0 md:space-y-6 md:items-center">
+
+                {/* MRI Image */}
+                <div className="flex flex-col items-center">
+                  <img
+                    src={imageUrl || '/sample-mri.png'}
+                    alt="User MRI Scan"
+                    className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
+                  />
+                  <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">MRI Scan</p>
+
+                  {/* Login message (only for not logged in users) */}
+                  {!user && (
+                    <p className="mt-2 text-xs tracking-wider text-center text-cyan-300 font-neue-machina w-[160px] md:w-[200px] leading-relaxed">
+                      🔒 Log in to view the AI-generated heatmap,
+                      <br />
+                      save your scans and download report.
+                    </p>
+                  )}
+                </div>
+
+                {/* Heatmap */}
+                {user && (
+                  heatmapUrl ? (
+                    <div className="flex flex-col items-center">
+                      <img
+                        src={heatmapUrl}
+                        alt="Heatmap"
+                        className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
+                      />
+                      <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">Heatmap</p>
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm tracking-wider text-center text-cyan-300 font-neue-machina md:text-right">
+                      Heatmap not generated for this scan.
+                    </p>
+                  )
+                )}
+              </div>
             </div>
           </div>
 
@@ -173,7 +228,7 @@ export default function ResultPage() {
                 const content = contentParts.join(':').trim();
                 return (
                   <div key={idx}>
-                    <p className="font-semibold text-cyan-400">{label.trim()}:</p>
+                    <p className=" text-cyan-400">{label.trim()}:</p>
                     <p className="mt-1">{content}</p>
                   </div>
                 );

@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  name               String
+  email              String             @unique
+  password           String
+  role               Role
+  createdAt          DateTime           @default(now())
+  verificationStatus VerificationStatus @default(PENDING)
+  licenseNumber      String?            @unique
+
+  predictions Prediction[]
+  reports     Report[]     @relation("DoctorReports")
+  Log         Log[]
+
+  @@index([role])
+  @@index([verificationStatus])
+}
+
+model HospitalDomain {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  result    String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  reports Report[]
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  notes     String
+  createdAt DateTime @default(now())
+
+  prediction   Prediction @relation(fields: [predictionId], references: [id])
+  predictionId String
+
+  doctor   User   @relation("DoctorReports", fields: [doctorId], references: [id])
+  doctorId String
+}
+
+model Log {
+  id        String   @id @default(cuid())
+  message   String
+  level     LogLevel
+  createdAt DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+}
