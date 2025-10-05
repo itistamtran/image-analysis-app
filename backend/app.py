@@ -1,10 +1,10 @@
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
-from backend.models import Prediction, User, Report, Log
-from backend.model import model, processor, device, predict_image, generate_vit_heatmap
-from backend.tumor_details import TUMOR_DETAILS
-from backend.utils.email_utils import validate_email, send_verification_email, get_serializer
-from backend.utils.mail_config import init_mail
+from models import Prediction, User, Report, Log
+from model import model, processor, device, predict_image, generate_vit_heatmap
+from tumor_details import TUMOR_DETAILS
+from utils.email_utils import validate_email, send_verification_email, get_serializer
+from utils.mail_config import init_mail
 
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
