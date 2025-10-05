@@ -1,21 +1,25 @@
-# Use Python 3.12 slim image
 FROM python:3.12-slim
 
-# Install OpenCV dependencies
-RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0 && apt-get clean
+# Install required system dependencies for OpenCV and image processing
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set the working directory
 WORKDIR /app
 
-# Copy dependency list and install Python packages
-COPY requirements.txt .
+# Copy all backend files
+COPY . /app
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the backend code
-COPY . .
-
-# Expose backend port
+# Expose port 8080 for Railway
 EXPOSE 8080
 
-# Run with gunicorn (production server)
+# Set environment variables
+ENV PORT=8080
+
+# Run the Flask app with Gunicorn
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
