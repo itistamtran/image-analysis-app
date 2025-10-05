@@ -55,8 +55,13 @@ app = Flask(
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 init_mail(app)
 
-CORS(app, resources={r"/*": {"origins": "*"}},
-     supports_credentials=True, allow_headers=["Content-Type"])
+CORS(
+    app,
+    resources={
+        r"/*": {"origins": ["https://medscanai.vercel.app", "http://localhost:5173"]}},
+    supports_credentials=True,
+    allow_headers=["Content-Type"]
+)
 
 # Path: backend/static/uploads/mri
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
