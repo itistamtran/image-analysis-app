@@ -9,7 +9,7 @@ __pycache__/
 *.log
 migrations/__pycache__/
 
-static/uploads/
+backend/static/uploads/mri/*
 
 # Ignore model files and large artifacts
 vit_brain_tumor_best_model/
