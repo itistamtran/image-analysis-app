@@ -45,7 +45,9 @@ export default function UploadPage() {
       const response = await axios.post(`${API_BASE}/predict`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: false,
+        mode: "cors",
       });
+
 
       const { id, result, confidence: conf, image_url, heatmap_url = null, created_at, probabilities } = response.data;
 

@@ -33,16 +33,8 @@ app = Flask(
     static_url_path="/static"      # URL path prefix
 )
 
-
 CORS(app, resources={
-    r"/*": {
-        "origins": [
-            "http://localhost:4173",
-            "http://127.0.0.1:4173",
-            "https://medscanai.vercel.app"
-        ]
-    }
-})
+     r"/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}})
 
 
 # Load database URL
