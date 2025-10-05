@@ -32,7 +32,18 @@ app = Flask(
     static_folder="static",        # relative to backend/
     static_url_path="/static"      # URL path prefix
 )
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:4173",
+            "http://127.0.0.1:4173",
+            "https://medscanai.vercel.app"
+        ]
+    }
+})
+
 
 # Load database URL
 DATABASE_URL = os.getenv("NEON_DATABASE_URL")
@@ -82,16 +93,6 @@ cred = credentials.Certificate(service_account_info)
 # Initialize only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
-
-
-@app.after_request
-def add_cors_headers(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers",
-                         "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods",
-                         "GET,POST,PUT,DELETE,OPTIONS")
-    return response
 
 
 @app.route('/predict', methods=['POST'])
@@ -221,17 +222,6 @@ def predict():
         app.logger.error(
             f"Error during prediction: {e}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
-
-
-@app.route('/predict', methods=['OPTIONS'])
-def predict_options():
-    response = app.make_default_options_response()
-    headers = response.headers
-
-    headers['Access-Control-Allow-Origin'] = '*'
-    headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-    headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
-    return response
 
 
 @app.route("/predictions", methods=["POST"])

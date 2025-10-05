@@ -73,14 +73,17 @@ const tumorDetails = {
 export default function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { prediction, confidence, image_url: backendImageUrl, imageFile, heatmap_url } = location.state || {};
+  const { prediction, confidence, image_url, heatmap_url } = location.state || {};
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
   // Prefer backend URL, fallback to local preview if exists
-  const imageUrl = backendImageUrl
-    ? `${API_BASE}${backendImageUrl}`
-    : (imageFile ? URL.createObjectURL(imageFile) : null);
+  const fullImageUrl = image_url?.startsWith('http')
+    ? image_url
+    : `${API_BASE}${image_url}`;
+  const fullHeatmapUrl = heatmap_url?.startsWith('http')
+    ? heatmap_url
+    : `${API_BASE}${heatmap_url}`;
 
   // fallback for heatmap
   const formatUrl = (url) => {
@@ -183,7 +186,7 @@ export default function ResultPage() {
                 {/* MRI Image */}
                 <div className="flex flex-col items-center">
                   <img
-                    src={imageUrl || '/sample-mri.png'}
+                    src={fullImageUrl || '/sample-mri.png'}
                     alt="User MRI Scan"
                     className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
                   />
@@ -204,7 +207,7 @@ export default function ResultPage() {
                   heatmapUrl ? (
                     <div className="flex flex-col items-center">
                       <img
-                        src={heatmapUrl}
+                        src={fullHeatmapUrl}
                         alt="Heatmap"
                         className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
                       />

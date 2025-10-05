@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import API_BASE from "../utils/config";
 
+console.log("Upload page using API_BASE:", API_BASE);
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
@@ -36,24 +37,29 @@ export default function UploadPage() {
 
     const formData = new FormData();
     formData.append('image', file);
-    if (user) {
-      formData.append("user_id", user.id); // only if logged in
-    }
+    if (user) formData.append("user_id", user.id);
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE}/predict`, formData);
+      console.log("Sending request to:", `${API_BASE}/predict`);
+      const response = await axios.post(`${API_BASE}/predict`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: false,
+      });
 
-      const { id, result, confidence: conf, image_url, heatmap_url = null, created_at } = response.data;
-
-      if (!heatmap_url) {
-        console.warn("No heatmap generated for this scan.");
-      }
+      const { id, result, confidence: conf, image_url, heatmap_url = null, created_at, probabilities } = response.data;
 
       setPrediction(result);
       setConfidence(conf);
 
-      // Save prediction only if logged in
+      // Build absolute URLs
+      const fullImageUrl = image_url?.startsWith('http')
+        ? image_url
+        : `${API_BASE}${image_url}`;
+      const fullHeatmapUrl = heatmap_url?.startsWith('http')
+        ? heatmap_url
+        : `${API_BASE}${heatmap_url}`;
+
       if (user) {
         let storedScans = JSON.parse(localStorage.getItem("scans") || "[]");
         storedScans.unshift({
@@ -65,41 +71,31 @@ export default function UploadPage() {
           created_at: new Date().toISOString()
         });
         localStorage.setItem("scans", JSON.stringify(storedScans));
-
-        // Notify dashboard to refresh
         window.dispatchEvent(new Event("scansUpdated"));
       }
 
-      if (result === 'LowConfidence') {
-        return;
-      }
+      if (result === 'LowConfidence') return;
 
-      // Navigate to Result page with prediction data
       navigate('/result', {
         state: {
           prediction: result,
           confidence: conf,
-          image_url,
-          heatmap_url,
-        }
+          image_url: fullImageUrl,
+          heatmap_url: fullHeatmapUrl,
+          probabilities,
+        },
       });
 
     } catch (err) {
       console.error(err);
-      let msg = 'Unknown error';
-      if (err.response?.data) {
-        msg = JSON.stringify(err.response.data, null, 2);
-      } else if (err.message) {
-        msg = err.message;
-      } else {
-        msg = JSON.stringify(err, null, 2);
-      }
+      let msg = err.response?.data
+        ? JSON.stringify(err.response.data, null, 2)
+        : err.message || JSON.stringify(err, null, 2);
       setError('Server error:\n' + msg);
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="relative flex flex-col min-h-screen text-white">
