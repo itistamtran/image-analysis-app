@@ -29,24 +29,37 @@ if not os.path.exists(MODEL_DIR):
 
     print("Model downloaded and extracted successfully!")
 
+# --- Check if model files exist ---
+config_path = os.path.join(MODEL_DIR, "config.json")
+
+# Sometimes extraction creates an extra nested folder
+nested_dir = os.path.join(MODEL_DIR, "vit_brain_tumor_best_model")
+if not os.path.exists(config_path) and os.path.exists(os.path.join(nested_dir, "config.json")):
+    print("⚙️ Nested model folder detected, switching path...")
+    MODEL_DIR = nested_dir
+
 # --- Load model and processor ---
 try:
+    print(f"Loading model from: {MODEL_DIR}")
     model = ViTForImageClassification.from_pretrained(MODEL_DIR)
     processor = ViTImageProcessor.from_pretrained(MODEL_DIR)
     print("✅ Model loaded successfully.")
 except Exception as e:
-    raise RuntimeError(f"❌ Failed to load model from {MODEL_DIR}: {e}")
+    print(f"❌ Failed to load model from {MODEL_DIR}: {e}")
+    print("📦 Listing contents for debug:")
+    for root, _, files in os.walk(MODEL_FOLDER):
+        for file in files:
+            print("   ", os.path.join(root, file))
+    raise
 
 # --- Device setup ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 model.eval()
 
-# --- Class labels ---
 CLASS_NAMES = ['glioma', 'meningioma', 'no_tumor', 'pituitary', 'unknown']
 
 
-# --- Prediction function ---
 def predict_image(file_bytes, debug=False):
     try:
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
@@ -75,7 +88,6 @@ def predict_image(file_bytes, debug=False):
         return 'Error', None, None
 
 
-# --- Visualization (ViT attention heatmap) ---
 def generate_vit_heatmap(model, image_path, processor, device, save_path=None):
     img = Image.open(image_path).convert("RGB")
     inputs = processor(images=img, return_tensors="pt").to(device)
