@@ -25,43 +25,30 @@ from models import Prediction, User, Report, Log
 import os
 from dotenv import load_dotenv
 
-# Load environment variables (for local dev)
-load_dotenv()
-
-# Read DATABASE_URL
-database_url = os.getenv("DATABASE_URL")
-
-# If Prisma hijacks it, replace with NEON_DATABASE_URL
-if database_url and database_url.startswith("prisma+postgres"):
-    print("⚠️ Detected Prisma DATABASE_URL, overriding with NEON_DATABASE_URL...")
-    database_url = os.getenv("NEON_DATABASE_URL")
-
-# If DATABASE_URL not set, use NEON_DATABASE_URL
-if not database_url:
-    database_url = os.getenv("NEON_DATABASE_URL")
-
-# Export
-os.environ["DATABASE_URL"] = database_url
-print("🧩 Final DATABASE_URL:", database_url)
-
-engine = create_engine(database_url)
+load_dotenv()  # load from .env file
 
 app = Flask(
     __name__,
     static_folder="static",        # relative to backend/
     static_url_path="/static"      # URL path prefix
 )
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+# Load database URL
+DATABASE_URL = os.getenv("NEON_DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL is not set. Check .env file.")
+
+try:
+    engine = create_engine(DATABASE_URL)
+    print("Database connected successfully.")
+except Exception as e:
+    print("Database connection failed:", e)
+
 
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 init_mail(app)
-
-CORS(
-    app,
-    resources={
-        r"/*": {"origins": ["https://medscanai.vercel.app", "http://localhost:5173"]}},
-    supports_credentials=True,
-    allow_headers=["Content-Type"]
-)
 
 # Path: backend/static/uploads/mri
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
@@ -73,7 +60,18 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db_connection():
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    dsn = os.getenv("NEON_DATABASE_URL")
+    if not dsn:
+        raise ValueError(
+            "NEON_DATABASE_URL is not set. Check .env file.")
+
+    # Sanitize in case of old prefix
+    if dsn.startswith("postgresql+psycopg2://"):
+        dsn = dsn.replace("postgresql+psycopg2://", "postgresql://", 1)
+        print("Fixed DSN prefix automatically")
+
+    print("Using DSN:", dsn)  # Debug print
+    conn = psycopg2.connect(dsn)
     return conn
 
 
@@ -84,6 +82,16 @@ cred = credentials.Certificate(service_account_info)
 # Initialize only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
+
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers",
+                         "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods",
+                         "GET,POST,PUT,DELETE,OPTIONS")
+    return response
 
 
 @app.route('/predict', methods=['POST'])
@@ -213,6 +221,17 @@ def predict():
         app.logger.error(
             f"Error during prediction: {e}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/predict', methods=['OPTIONS'])
+def predict_options():
+    response = app.make_default_options_response()
+    headers = response.headers
+
+    headers['Access-Control-Allow-Origin'] = '*'
+    headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    headers['Access-Control-Allow-Methods'] = 'POST,OPTIONS'
+    return response
 
 
 @app.route("/predictions", methods=["POST"])
