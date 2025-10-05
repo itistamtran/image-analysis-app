@@ -3,7 +3,7 @@ import requests
 from flask import current_app as app, url_for
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
-from backend.utils.mail_config import mail
+from utils.mail_config import mail
 
 
 MAILBOXLAYER_KEY = os.getenv("MAILBOXLAYER_API_KEY")
