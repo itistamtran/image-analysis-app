@@ -1,14 +1,7 @@
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
-from models import Prediction, User, Report, Log
-from model import model, processor, device, predict_image, generate_vit_heatmap
-from tumor_details import TUMOR_DETAILS
-from utils.email_utils import validate_email, send_verification_email, get_serializer
-from utils.mail_config import init_mail
-
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
-import os
 import uuid
 import psycopg2
 import bcrypt
@@ -17,7 +10,6 @@ import traceback
 import json
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-
 from reportlab.lib.pagesizes import letter
 from datetime import datetime
 from reportlab.pdfgen import canvas
@@ -25,6 +17,34 @@ from io import BytesIO
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from itsdangerous import SignatureExpired, BadSignature
+from utils.mail_config import init_mail
+from utils.email_utils import validate_email, send_verification_email, get_serializer
+from tumor_details import TUMOR_DETAILS
+from model import model, processor, device, predict_image, generate_vit_heatmap
+from models import Prediction, User, Report, Log
+import os
+from dotenv import load_dotenv
+
+# Load environment variables (for local dev)
+load_dotenv()
+
+# Read DATABASE_URL
+database_url = os.getenv("DATABASE_URL")
+
+# If Prisma hijacks it, replace with NEON_DATABASE_URL
+if database_url and database_url.startswith("prisma+postgres"):
+    print("⚠️ Detected Prisma DATABASE_URL, overriding with NEON_DATABASE_URL...")
+    database_url = os.getenv("NEON_DATABASE_URL")
+
+# If DATABASE_URL not set, use NEON_DATABASE_URL
+if not database_url:
+    database_url = os.getenv("NEON_DATABASE_URL")
+
+# Export
+os.environ["DATABASE_URL"] = database_url
+print("🧩 Final DATABASE_URL:", database_url)
+
+engine = create_engine(database_url)
 
 app = Flask(
     __name__,
@@ -41,9 +61,6 @@ CORS(app, resources={r"/*": {"origins": "*"}},
 # Path: backend/static/uploads/mri
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
