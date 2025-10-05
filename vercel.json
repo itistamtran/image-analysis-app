@@ -8,7 +8,7 @@
       }
     }
   ],
-  "buildCommand": "cd frontend && pnpm install && pnpm run build",
+  "buildCommand": "pnpm install && pnpm run build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
   "rewrites": [
