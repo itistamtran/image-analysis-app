@@ -35,24 +35,24 @@ app = Flask(
 )
 
 
-def origin_validator(origin):
-    # Allow all localhost and 127.0.0.1 origins
-    if origin and ("localhost" in origin or "127.0.0.1" in origin):
-        return True
-    # Allow production frontends
-    allowed = [
+@app.after_request
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
         "https://medscanai.vercel.app",
         "https://flask-api-production-f9b2.up.railway.app"
     ]
-    return origin in allowed
 
-
-CORS(app,
-     resources={r"/*": {"origins": origin_validator}},
-     supports_credentials=True,
-     allow_headers=["Content-Type", "Authorization"],
-     expose_headers=["Content-Type"]
-     )
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
 
 
 # Load database URL
