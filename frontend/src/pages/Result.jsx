@@ -195,7 +195,7 @@ export default function ResultPage() {
                   {/* Login message (only for not logged in users) */}
                   {!user && (
                     <p className="mt-2 text-xs tracking-wider text-center text-cyan-300 font-neue-machina w-[160px] md:w-[200px] leading-relaxed">
-                      🔒 Log in to view the AI-generated heatmap,
+                      🔒 Log in to view the AI-generated Grad-CAM Heatmap,
                       <br />
                       save your scans and download report.
                     </p>
@@ -208,14 +208,14 @@ export default function ResultPage() {
                     <div className="flex flex-col items-center">
                       <img
                         src={fullHeatmapUrl}
-                        alt="Heatmap"
+                        alt="Grad-CAM Heatmap"
                         className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
                       />
-                      <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">Heatmap</p>
+                      <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">Grad-CAM Heatmap</p>
                     </div>
                   ) : (
                     <p className="mt-4 text-sm tracking-wider text-center text-cyan-300 font-neue-machina md:text-right">
-                      Heatmap not generated for this scan.
+                      Grad-CAM Heatmap not generated for this scan.
                     </p>
                   )
                 )}

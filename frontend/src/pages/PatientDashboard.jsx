@@ -334,7 +334,7 @@ export default function PatientDashboard() {
                     >
                         {/* MRI Image */}
                         {latestScan.image_url && (
-                            <Box sx={{ flex: 1, maxWidth: "400px", textAlign: "center" }}>
+                            <Box sx={{ width: 350, height: 350, textAlign: "center" }}>
                                 <Typography
                                     variant="h6"
                                     sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em", }}
@@ -345,9 +345,11 @@ export default function PatientDashboard() {
                                     src={`${API_BASE}${latestScan.image_url}`}
                                     alt="MRI Scan"
                                     style={{
-                                        height: "350px",
-                                        width: "auto",
-                                        objectFit: "cover",
+                                        width: 350,
+                                        height: 350,
+                                        aspectRatio: "1 / 1",
+                                        objectFit: "contain",
+                                        flex: "0 0 350px",
                                         borderRadius: "8px",
                                         boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
                                     }}
@@ -357,20 +359,22 @@ export default function PatientDashboard() {
 
                         {/* Heatmap */}
                         {latestScan.heatmap_url && (
-                            <Box sx={{ flex: 1, maxWidth: "400px", textAlign: "center" }}>
+                            <Box sx={{ width: 350, height: 350, textAlign: "center", mt: { xs: 8, md: 0 }, }}>
                                 <Typography
                                     variant="h6"
                                     sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}
                                 >
-                                    Heatmap
+                                    Grad-CAM Heatmap
                                 </Typography>
                                 <img
                                     src={`${API_BASE}${latestScan.heatmap_url}`}
-                                    alt="Heatmap"
+                                    alt="Grad-CAM Heatmap"
                                     style={{
-                                        height: "350px",
-                                        width: "auto",
-                                        objectFit: "cover",
+                                        width: 350,
+                                        height: 350,
+                                        aspectRatio: "1 / 1",
+                                        objectFit: "contain",
+                                        flex: "0 0 350px",
                                         borderRadius: "8px",
                                         boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
                                     }}
@@ -380,16 +384,16 @@ export default function PatientDashboard() {
                     </Box>
 
                     {/* Detail Summary */}
-                    <Box sx={{ mt: 2, mb: 4 }}>
-                        <Typography variant="body1" sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif" }}>
+                    <Box sx={{ mt: 6, mb: 4 }}>
+                        <Typography variant="body1" sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}>
                             <b>Date:</b> {latestScan.created_at ? new Date(latestScan.created_at).toLocaleString() : "N/A"}
                         </Typography>
 
-                        <Typography variant="body1" sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif" }}>
+                        <Typography variant="body1" sx={{ mb: 1, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}>
                             <b>Final Prediction:</b> {latestScan.result || "N/A"}
                         </Typography>
 
-                        <Typography variant="body1" sx={{ mb: 2, fontFamily: "Neue Machina, sans-serif" }}>
+                        <Typography variant="body1" sx={{ mb: 2, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}>
                             <b>Confidence Score:</b>{" "}
                             {latestScan.confidence !== null ? (latestScan.confidence * 100).toFixed(2) + "%" : "N/A"}
                         </Typography>
@@ -401,7 +405,7 @@ export default function PatientDashboard() {
                             Detail:
                         </Typography>
 
-                        <Typography variant="body1" sx={{ mb: 2, fontFamily: "Neue Machina, sans-serif" }}>
+                        <Typography variant="body1" sx={{ mb: 2, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}>
                             <strong>{tumorInfo.title}</strong>
                             <br />
                             <br />
@@ -417,14 +421,13 @@ export default function PatientDashboard() {
                             variant="h7"
                             sx={{ mb: 2, fontFamily: "Neue Machina Bold, sans-serif", letterSpacing: "0.1em" }}
                         >
-                            What the Heatmap Shows
+                            What the Grad-CAM Heatmap Shows
                         </Typography>
                         <Typography
                             variant="body1"
                             sx={{ mb: 2, fontFamily: "Neue Machina, sans-serif", letterSpacing: "0.1em" }}
                         >
-                            The heatmap highlights areas of the MRI scan that the AI model considered most important in making its prediction. Warmer colors (red, orange, yellow) indicate regions of higher attention, while cooler colors (blue, green) indicate less importance. This does not necessarily mean a tumor is present, but rather shows what influenced the model’s decision.
-                        </Typography>
+                            The Grad-CAM Heatmap offers a visual explanation of the AI model’s decision. It shows where the AI focused while analyzing the MRI scan. Warmer colors (red, orange, yellow) mark areas that had a stronger influence on the model’s prediction, while cooler colors (blue, green) had less influence. This helps you understand how the AI reached its conclusion, but it’s not a medical diagnosis, it simply provides insight into the model’s reasoning process.                        </Typography>
                     </Box>
 
                     {/* Download Button */}

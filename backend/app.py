@@ -21,12 +21,10 @@ from itsdangerous import SignatureExpired, BadSignature
 from utils.mail_config import init_mail
 from utils.email_utils import validate_email, send_verification_email, get_serializer
 from tumor_details import TUMOR_DETAILS
-from model import model, processor, device, predict_image, generate_vit_heatmap
+from model import model, processor, device, predict_image, generate_vit_gradcam
 from models import Prediction, User, Report, Log
 import os
 from dotenv import load_dotenv
-import threading
-import re
 
 load_dotenv()  # load from .env file
 
@@ -103,12 +101,11 @@ def predict():
             return jsonify({'error': 'No image uploaded'}), 400
 
         file = request.files['image']
-
         user_id = request.form.get("user_id")
         guest_upload = not bool(user_id)
 
-        print(f"🔹 Received file: {file.filename}")
-        print(f"🔹 User ID: {user_id if user_id else 'Guest upload'}")
+        print(f"Received file: {file.filename}")
+        print(f"User ID: {user_id if user_id else 'Guest upload'}")
 
         # --- Save uploaded MRI image ---
         upload_folder = os.path.join(app.root_path, "static", "uploads", "mri")
@@ -122,27 +119,31 @@ def predict():
             return jsonify({'error': 'Failed to save file'}), 500
 
         image_url = f"/static/uploads/mri/{filename}"
-        print(f"Saved file at {filepath}")
+        print(f"✅ Saved file at {filepath}")
 
         # --- Run model prediction ---
         result, confidence, all_probs = predict_image(
             open(filepath, "rb").read())
-        print("Model result:", result, "Confidence:", confidence)
+        print("🧠 Model result:", result, "| Confidence:", confidence)
 
-        # --- Generate heatmap in background to avoid blocking the request ---
+        # --- Generate Grad-CAM heatmap ---
         heatmap_filename = f"{uuid.uuid4().hex}_heatmap.jpg"
         heatmap_save_path = os.path.join(upload_folder, heatmap_filename)
-        heatmap_url = f"/static/uploads/mri/{heatmap_filename}"
+        heatmap_url = None
 
-        def background_heatmap():
-            try:
-                generate_vit_heatmap(model, filepath, processor,
-                                     device, save_path=heatmap_save_path)
-                print(f"✅ Heatmap saved at {heatmap_save_path}")
-            except Exception as e:
-                print(f"⚠️ Heatmap generation failed: {e}")
-
-        threading.Thread(target=background_heatmap).start()
+        try:
+            heatmap_path = generate_vit_gradcam(
+                model, filepath, processor, device, save_path=heatmap_save_path
+            )
+            if heatmap_path and os.path.exists(heatmap_path):
+                heatmap_url = f"/static/uploads/mri/{os.path.basename(heatmap_path)}"
+                print(f"Grad-CAM generated successfully → {heatmap_url}")
+            else:
+                print("[WARN] Grad-CAM file not created")
+        except Exception as e:
+            print("[ERROR] Grad-CAM generation exception:", e)
+            print(traceback.format_exc())
+            heatmap_url = None  # prevent crash if Grad-CAM fails
 
         # --- Tumor detail lookup ---
         result_map = {
@@ -155,61 +156,46 @@ def predict():
         }
         detail_key = result_map.get(result.lower(), "unknown")
         detail = TUMOR_DETAILS.get(detail_key, {
-                                   "title": "Unknown", "description": "No details available", "bullets": []})
+            "title": "Unknown", "description": "No details available", "bullets": []})
 
         # --- Prepare DB save ---
         conn = get_db_connection()
         cur = conn.cursor()
-
         prediction_id = uuid.uuid4()
         created_at = datetime.utcnow()
-        guest_upload = not bool(user_id)
 
         print(f"Saving prediction (guest={guest_upload})")
 
-        # Insert prediction (guest-safe)
+        # Insert prediction
         if user_id:
-            cur.execute(
-                """
+            cur.execute("""
                 INSERT INTO "Prediction" (id, result, confidence, image_url, heatmap_url, user_id, created_at, guest_upload)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (str(prediction_id), result, confidence, image_url,
-                 heatmap_url, str(user_id), created_at, guest_upload)
-            )
+            """, (str(prediction_id), result, confidence, image_url,
+                  heatmap_url or '', str(user_id), created_at, guest_upload))
         else:
-            cur.execute(
-                """
+            cur.execute("""
                 INSERT INTO "Prediction" (id, result, confidence, image_url, heatmap_url, created_at, guest_upload)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (str(prediction_id), result, confidence,
-                 image_url, heatmap_url, created_at, guest_upload)
-            )
+            """, (str(prediction_id), result, confidence,
+                  image_url, heatmap_url or '', created_at, guest_upload))
 
-        # --- Create auto-report ---
-        auto_notes = (
-            f"{detail['title']}\n\n{detail['description']}\n\n" +
+        # --- Auto-report ---
+        auto_notes = f"{detail['title']}\n\n{detail['description']}\n\n" + \
             "\n".join([f"- {p}" for p in detail["bullets"]])
-        )
         report_id = uuid.uuid4()
-
-        cur.execute(
-            """
+        cur.execute("""
             INSERT INTO "Report" (id, prediction_id, notes, recommendations, doctor_id, created_at)
             VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            (str(report_id), str(prediction_id),
-             auto_notes, json.dumps([]), None, created_at)
-        )
+        """, (str(report_id), str(prediction_id), auto_notes, json.dumps([]), None, created_at))
 
         conn.commit()
         cur.close()
         conn.close()
 
-        print("Prediction + report saved successfully")
+        print("✅ Prediction + report saved successfully")
 
-        # --- Return result ---
+        # --- Response ---
         return jsonify({
             'id': str(prediction_id),
             'result': result,
@@ -223,7 +209,7 @@ def predict():
 
     except Exception as e:
         app.logger.error(
-            f"Error during prediction: {e}\n{traceback.format_exc()}")
+            f"❌ Error during prediction: {e}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 

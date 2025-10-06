@@ -159,7 +159,7 @@ export default function UploadPage() {
             💡 <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">Tip:</span> You can upload an MRI image as a guest,
             but if you <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">log in</span>,
             your scans will be saved in your dashboard and you’ll also see
-            the <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">AI-generated heatmap</span> for each prediction.
+            the <span className="font-semibold tracking-wider text-cyan-300 font-neue-machina">AI-generated Grad-CAM Heatmap</span> for each prediction.
           </p>
         )}
 
