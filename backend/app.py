@@ -37,21 +37,29 @@ app = Flask(
 
 @app.after_request
 def add_cors_headers(response):
-    origin = request.headers.get('Origin')
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        "https://medscanai.vercel.app",
-        "https://flask-api-production-f9b2.up.railway.app"
-    ]
+    try:
+        origin = request.headers.get("Origin")
+        allowed_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:4173",
+            "http://127.0.0.1:4173",
+            "https://medscanai.vercel.app",
+            "https://flask-api-production-f9b2.up.railway.app"
+        ]
 
-    if origin in allowed_origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+        # Explicitly handle preflight OPTIONS requests
+        if request.method == "OPTIONS":
+            response.status_code = 200
+            response.data = b""
+    except Exception as e:
+        print("CORS middleware error:", e)
     return response
 
 
