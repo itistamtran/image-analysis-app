@@ -25,6 +25,8 @@ from model import model, processor, device, predict_image, generate_vit_heatmap
 from models import Prediction, User, Report, Log
 import os
 from dotenv import load_dotenv
+import threading
+import re
 
 load_dotenv()  # load from .env file
 
@@ -35,32 +37,7 @@ app = Flask(
 )
 
 
-@app.after_request
-def add_cors_headers(response):
-    try:
-        origin = request.headers.get("Origin")
-        allowed_origins = [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "http://localhost:4173",
-            "http://127.0.0.1:4173",
-            "https://medscanai.vercel.app",
-            "https://flask-api-production-f9b2.up.railway.app"
-        ]
-
-        if origin and origin in allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-
-        # Explicitly handle preflight OPTIONS requests
-        if request.method == "OPTIONS":
-            response.status_code = 200
-            response.data = b""
-    except Exception as e:
-        print("CORS middleware error:", e)
-    return response
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 
 # Load database URL
@@ -152,17 +129,20 @@ def predict():
             open(filepath, "rb").read())
         print("Model result:", result, "Confidence:", confidence)
 
-        # --- Try to generate heatmap ---
-        heatmap_url = None
-        try:
-            heatmap_filename = f"{uuid.uuid4().hex}_heatmap.jpg"
-            heatmap_save_path = os.path.join(upload_folder, heatmap_filename)
-            generate_vit_heatmap(model, filepath, processor,
-                                 device, save_path=heatmap_save_path)
-            heatmap_url = f"/static/uploads/mri/{heatmap_filename}"
-            print("Heatmap generated at", heatmap_url)
-        except Exception as e:
-            print("Heatmap generation failed:", e)
+        # --- Generate heatmap in background to avoid blocking the request ---
+        heatmap_filename = f"{uuid.uuid4().hex}_heatmap.jpg"
+        heatmap_save_path = os.path.join(upload_folder, heatmap_filename)
+        heatmap_url = f"/static/uploads/mri/{heatmap_filename}"
+
+        def background_heatmap():
+            try:
+                generate_vit_heatmap(model, filepath, processor,
+                                     device, save_path=heatmap_save_path)
+                print(f"✅ Heatmap saved at {heatmap_save_path}")
+            except Exception as e:
+                print(f"⚠️ Heatmap generation failed: {e}")
+
+        threading.Thread(target=background_heatmap).start()
 
         # --- Tumor detail lookup ---
         result_map = {

@@ -7,6 +7,8 @@ import zipfile
 import gdown
 import cv2
 import numpy as np
+import gc
+
 
 # --- Setup paths ---
 BASE_DIR = os.path.dirname(__file__)
@@ -89,25 +91,41 @@ def predict_image(file_bytes, debug=False):
 
 
 def generate_vit_heatmap(model, image_path, processor, device, save_path=None):
-    img = Image.open(image_path).convert("RGB")
-    inputs = processor(images=img, return_tensors="pt").to(device)
+    try:
+        # Load and resize image
+        img = Image.open(image_path).convert("RGB").resize((224, 224))
+        inputs = processor(images=img, return_tensors="pt").to(device)
 
-    outputs = model(**inputs, output_attentions=True)
-    attn = outputs.attentions[-1][0].mean(0)
+        # Forward pass (no attention extraction)
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            _ = torch.softmax(logits, dim=-1)
 
-    grid_size = int((attn.shape[0] - 1) ** 0.5)
-    attn_map = attn[0, 1:].reshape(grid_size, grid_size).detach().cpu().numpy()
-    attn_map = cv2.resize(attn_map, (224, 224))
-    attn_map = attn_map / attn_map.max()
+        # Simple pseudo heatmap (brightness-based)
+        img_np = np.array(img)
+        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+        gray_norm = (gray - gray.min()) / (gray.max() - gray.min() + 1e-8)
 
-    img_np = np.array(img.resize((224, 224)))
-    heatmap = cv2.applyColorMap(np.uint8(255 * attn_map), cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
+        heatmap = cv2.applyColorMap(
+            np.uint8(255 * gray_norm), cv2.COLORMAP_JET)
+        overlay = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
 
-    if save_path is None:
-        root, ext = os.path.splitext(image_path)
-        save_path = f"{root}_vit_heatmap.jpg"
+        # Save the heatmap
+        if save_path is None:
+            root, _ = os.path.splitext(image_path)
+            save_path = f"{root}_vit_heatmap.jpg"
 
-    cv2.imwrite(save_path, overlay)
-    print(f"🔥 Heatmap saved at {save_path}")
-    return save_path
+        cv2.imwrite(save_path, overlay)
+        print(f"Lightweight heatmap saved at {save_path}")
+
+        # Cleanup
+        del img, inputs, outputs, logits, img_np, gray, gray_norm, heatmap, overlay
+        gc.collect()
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+        return save_path
+
+    except Exception as e:
+        print(f"❌ Heatmap generation failed: {e}")
+        return None

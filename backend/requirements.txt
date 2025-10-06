@@ -1,4 +1,4 @@
-# Flask core
+# --- Flask core ---
 flask==3.0.3
 flask-cors==4.0.0
 flask-httpauth==4.7.0
@@ -7,22 +7,22 @@ gunicorn==21.2.0
 itsdangerous==2.2.0
 Werkzeug==3.0.3
 
-# Firebase & authentication
+# --- Firebase & authentication ---
 firebase-admin==6.5.0
 bcrypt==4.1.2
 PyJWT==2.8.0
 
-# Database
-sqlalchemy==2.0.20
+# --- Database ---
+SQLAlchemy==2.0.20
 alembic==1.11.1
-psycopg2-binary>=2.9.9,<3.0
+psycopg2-binary==2.9.9
 
-# Utilities
+# --- Utilities ---
 python-dotenv==1.0.0
 requests==2.32.2
 reportlab==4.2.0
 
-# Machine learning
+# --- Machine Learning / Computer Vision ---
 torch==2.2.2
 torchvision==0.17.2
 torchaudio==2.2.2
