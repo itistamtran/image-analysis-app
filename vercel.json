@@ -1,13 +1,4 @@
 {
-  "builds": [
-    {
-      "src": "frontend/vite.config.js",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "frontend/dist"
-      }
-    }
-  ],
   "buildCommand": "pnpm install && pnpm run build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
