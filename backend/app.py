@@ -1,3 +1,4 @@
+from werkzeug.wrappers import Request, Response
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
 import firebase_admin
@@ -33,8 +34,25 @@ app = Flask(
     static_url_path="/static"      # URL path prefix
 )
 
-CORS(app, resources={
-     r"/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}})
+
+def origin_validator(origin):
+    # Allow all localhost and 127.0.0.1 origins
+    if origin and ("localhost" in origin or "127.0.0.1" in origin):
+        return True
+    # Allow production frontends
+    allowed = [
+        "https://medscanai.vercel.app",
+        "https://flask-api-production-f9b2.up.railway.app"
+    ]
+    return origin in allowed
+
+
+CORS(app,
+     resources={r"/*": {"origins": origin_validator}},
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     expose_headers=["Content-Type"]
+     )
 
 
 # Load database URL
@@ -85,6 +103,11 @@ cred = credentials.Certificate(service_account_info)
 # Initialize only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
+
+
+@app.route("/test-cors", methods=["GET", "OPTIONS"])
+def test_cors():
+    return {"message": "CORS working!"}, 200
 
 
 @app.route('/predict', methods=['POST'])
