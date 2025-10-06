@@ -28,7 +28,6 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    console.log('API base URL:', import.meta.env.VITE_API_BASE_URL);
     const user = JSON.parse(localStorage.getItem("user") || "null");
 
     if (!file) {
