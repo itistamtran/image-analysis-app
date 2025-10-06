@@ -28,6 +28,7 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
+    console.log('API base URL:', import.meta.env.VITE_API_BASE_URL);
     const user = JSON.parse(localStorage.getItem("user") || "null");
 
     if (!file) {
@@ -46,7 +47,6 @@ export default function UploadPage() {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: false,
       });
-
 
 
       const { id, result, confidence: conf, image_url, heatmap_url = null, created_at, probabilities } = response.data;
