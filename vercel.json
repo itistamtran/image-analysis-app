@@ -4,11 +4,11 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/(predict|predictions|login|signup|verify|reports?|users)(.*)",
-      "destination": "https://flask-api-production-f9b2.up.railway.app/$1$2"
+      "source": "/(.*)",
+      "destination": "https://flask-api-production-f9b2.up.railway.app/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/",
       "destination": "/index.html"
     }
   ]
