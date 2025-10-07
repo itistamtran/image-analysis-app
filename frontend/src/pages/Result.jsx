@@ -99,7 +99,7 @@ export default function ResultPage() {
   useEffect(() => {
     if (!id || currentHeatmap) return;
 
-    console.log("Starting Grad-CAM polling for:", id);
+    console.log("🌀 Polling for Grad-CAM heatmap:", id);
     setPolling(true);
 
     const interval = setInterval(async () => {
@@ -107,23 +107,29 @@ export default function ResultPage() {
         const res = await axios.get(`${API_BASE}/prediction/${id}`);
         const updated = res.data;
 
-        if (updated?.heatmap_url) {
+        // Check that heatmap_url exists and is valid
+        if (
+          updated &&
+          typeof updated.heatmap_url === "string" &&
+          updated.heatmap_url.trim() !== "" &&
+          updated.heatmap_url !== "null"
+        ) {
           const fullUrl = `${API_BASE}${updated.heatmap_url}`;
           console.log("✅ Heatmap ready:", fullUrl);
           setCurrentHeatmap(fullUrl);
-          setPolling(false);
           clearInterval(interval);
+          setPolling(false);
         } else {
-          console.log("⏳ Still waiting for Grad-CAM...");
+          console.log("⏳ Waiting for Grad-CAM...");
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 4000); // check every 4 seconds
+    }, 4000); // every 4 seconds
 
-    // safety timeout
+    // Stop polling after 60 seconds to avoid infinite loop
     const timeout = setTimeout(() => {
-      console.warn("Stopped polling after 60s (timeout)");
+      console.warn("⚠️ Grad-CAM still not ready after 60s. Stopping poll.");
       clearInterval(interval);
       setPolling(false);
     }, 60000);
@@ -133,7 +139,6 @@ export default function ResultPage() {
       clearTimeout(timeout);
     };
   }, [id, currentHeatmap]);
-
 
   if (!info) {
     return (
@@ -148,7 +153,6 @@ export default function ResultPage() {
       </div>
     );
   }
-
 
   return (
     <div className="relative flex flex-col min-h-screen text-white">
@@ -253,29 +257,36 @@ export default function ResultPage() {
                 {/* Heatmap */}
                 {user && (
                   currentHeatmap ? (
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center transition-all duration-300 ease-in-out">
                       <img
                         src={currentHeatmap}
                         alt="Grad-CAM Heatmap"
-                        className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
+                        className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg border border-cyan-300/40"
                       />
                       <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">
                         Grad-CAM Heatmap
                       </p>
                     </div>
                   ) : (
-                    <p className="mt-4 text-sm tracking-wider text-center text-cyan-300 font-neue-machina md:text-right">
-                      {polling
-                        ? "⏳ Generating Grad-CAM Heatmap..."
-                        : "Grad-CAM Heatmap not generated for this scan."}
-                    </p>
+                    <div className="flex flex-col items-center md:items-end md:text-right">
+                      {polling ? (
+                        <div className="flex flex-col items-center">
+                          <div className="w-6 h-6 mb-2 border-4 border-gray-700 rounded-full border-t-cyan-300 animate-spin" />
+                          <p className="text-sm tracking-wider text-cyan-300 font-neue-machina">
+                            Generating Grad-CAM Heatmap...
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm tracking-wider text-center text-cyan-300 font-neue-machina">
+                          Grad-CAM Heatmap not generated for this scan.
+                        </p>
+                      )}
+                    </div>
                   )
                 )}
               </div>
             </div>
           </div>
-
-
 
           <div className="flex justify-center">
             <button
