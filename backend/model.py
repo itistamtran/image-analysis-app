@@ -12,7 +12,9 @@ from pytorch_grad_cam import GradCAM, EigenCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.reshape_transforms import vit_reshape_transform
 from pytorch_grad_cam import EigenCAM
-
+import firebase_admin
+from firebase_admin import storage, credentials
+import json
 
 # --- Setup paths ---
 BASE_DIR = os.path.dirname(__file__)
@@ -198,4 +200,38 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     cv2.imwrite(save_path.replace(".jpg", "_heatmap_only.jpg"), heatmap_color)
 
     print(f"✅ CAM saved at {save_path} (class={pred_class})")
-    return save_path
+
+    # --- Upload to Firebase Storage ---
+    try:
+        # Initialize Firebase only once
+        if not firebase_admin._apps:
+            firebase_key_data = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+            if not firebase_key_data:
+                raise ValueError(
+                    "FIREBASE_SERVICE_ACCOUNT environment variable not set")
+
+            cred_dict = json.loads(firebase_key_data)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred, {
+                "storageBucket": "medscanai-tam.appspot.com"
+            })
+
+        bucket = storage.bucket()
+        filename = os.path.basename(save_path)
+        blob = bucket.blob(f"heatmaps/{filename}")
+        blob.upload_from_filename(save_path)
+        blob.make_public()
+        heatmap_url = blob.public_url
+
+        print(f"✅ Uploaded heatmap to Firebase: {heatmap_url}")
+
+        try:
+            os.remove(save_path)
+        except Exception:
+            pass
+
+        return heatmap_url
+
+    except Exception as e:
+        print("[WARN] Firebase upload failed:", e)
+        return save_path

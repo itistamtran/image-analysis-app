@@ -2,7 +2,7 @@ from werkzeug.wrappers import Request, Response
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
 import firebase_admin
-from firebase_admin import credentials, auth as firebase_auth
+from firebase_admin import storage, credentials, auth as firebase_auth
 import uuid
 import psycopg2
 import bcrypt
@@ -35,6 +35,15 @@ app = Flask(
     static_url_path="/static"      # URL path prefix
 )
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate(json.loads(
+        os.getenv("FIREBASE_SERVICE_ACCOUNT")))
+    firebase_admin.initialize_app(
+        cred, {"storageBucket": "medscanai-tam.appspot.com"})
+
+print("✅ Firebase initialized:", firebase_admin.get_app().name)
+print("✅ Bucket name:", storage.bucket().name)
+
 ALLOWED_ORIGINS = [
     "http://localhost:5173/",
     "http://127.0.0.1:5173",
@@ -48,7 +57,7 @@ CORS(
     origins=ALLOWED_ORIGINS,
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-    methods=["GET", "POST", "OPTIONS"],
+    methods=["GET", "POST", "OPTIONS", "DELETE", "PUT"],
 )
 # ensure CORS headers are present even on errors
 
@@ -1098,6 +1107,39 @@ def delete_prediction(prediction_id):
     except Exception as e:
         app.logger.error(f"Error deleting prediction: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/test-firebase", methods=["GET"])
+def test_firebase():
+    import os
+    import json
+    import firebase_admin
+    from firebase_admin import credentials, storage
+
+    try:
+        if not firebase_admin._apps:
+            firebase_key_data = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+            if not firebase_key_data:
+                return jsonify({"error": "FIREBASE_SERVICE_ACCOUNT not set"}), 500
+
+            cred_dict = json.loads(firebase_key_data)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred, {
+                "storageBucket": "medscanai-tam.appspot.com"
+            })
+
+        bucket = storage.bucket()
+        return jsonify({
+            "status": "✅ Firebase connected successfully!",
+            "bucket": bucket.name
+        }), 200
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 
 # --- Run the app ---

@@ -36,12 +36,11 @@ export default function PatientDashboard() {
             const res = await fetch(`${API_BASE}/predictions/${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error("Failed to delete");
 
-            setScans((prev) => prev.filter((item) => item.id !== id));
-
-            // also update localStorage
-            localStorage.setItem("scans", JSON.stringify(
-                scans.filter((item) => item.id !== id)
-            ));
+            setScans((prev) => {
+                const updated = prev.filter((item) => item.id !== id);
+                localStorage.setItem("scans", JSON.stringify(updated));
+                return updated;
+            });
         } catch (err) {
             console.error("Delete failed:", err);
         }
