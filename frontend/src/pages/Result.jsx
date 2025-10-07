@@ -99,27 +99,31 @@ export default function ResultPage() {
   useEffect(() => {
     if (!id || currentHeatmap) return;
 
+    console.log("Starting Grad-CAM polling for:", id);
     setPolling(true);
+
     const interval = setInterval(async () => {
       try {
         const res = await axios.get(`${API_BASE}/prediction/${id}`);
         const updated = res.data;
 
-        if (updated.heatmap_url) {
+        if (updated?.heatmap_url) {
           const fullUrl = `${API_BASE}${updated.heatmap_url}`;
-          setCurrentHeatmap(fullUrl);
           console.log("✅ Heatmap ready:", fullUrl);
-
-          clearInterval(interval);
+          setCurrentHeatmap(fullUrl);
           setPolling(false);
+          clearInterval(interval);
+        } else {
+          console.log("⏳ Still waiting for Grad-CAM...");
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 3000);
+    }, 4000); // check every 4 seconds
 
-    // Stop polling after 60 seconds in case Grad-CAM takes longer
+    // safety timeout
     const timeout = setTimeout(() => {
+      console.warn("Stopped polling after 60s (timeout)");
       clearInterval(interval);
       setPolling(false);
     }, 60000);
