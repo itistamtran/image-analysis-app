@@ -39,7 +39,7 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(json.loads(
         os.getenv("FIREBASE_SERVICE_ACCOUNT")))
     firebase_admin.initialize_app(
-        cred, {"storageBucket": "medscanai-tam.firebasestorage.app"})
+        cred, {"storageBucket": "medscanai-tam.appspot.com"})
 
 print("✅ Firebase initialized:", firebase_admin.get_app().name)
 print("✅ Bucket name:", storage.bucket().name)

@@ -104,19 +104,32 @@ export default function ResultPage() {
       try {
         const res = await axios.get(`${API_BASE}/prediction/${id}`);
         const updated = res.data;
+
         if (updated.heatmap_url) {
-          setCurrentHeatmap(`${API_BASE}${updated.heatmap_url}`);
+          const fullUrl = `${API_BASE}${updated.heatmap_url}`;
+          setCurrentHeatmap(fullUrl);
+          console.log("✅ Heatmap ready:", fullUrl);
+
           clearInterval(interval);
           setPolling(false);
-          console.log("✅ Heatmap ready:", updated.heatmap_url);
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
-    }, 5000);
+    }, 3000);
 
-    return () => clearInterval(interval);
+    // Stop polling after 60 seconds in case Grad-CAM takes longer
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      setPolling(false);
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [id, currentHeatmap]);
+
 
   if (!info) {
     return (
