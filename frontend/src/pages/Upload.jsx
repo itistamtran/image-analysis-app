@@ -79,6 +79,7 @@ export default function UploadPage() {
 
       navigate('/result', {
         state: {
+          id,
           prediction: result,
           confidence: conf,
           image_url: fullImageUrl,

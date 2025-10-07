@@ -25,6 +25,7 @@ from model import model, processor, device, predict_image, generate_vit_gradcam
 from models import Prediction, User, Report, Log
 import os
 from dotenv import load_dotenv
+from threading import Thread
 
 load_dotenv()  # load from .env file
 
@@ -34,12 +35,34 @@ app = Flask(
     static_url_path="/static"      # URL path prefix
 )
 
-
-CORS(app, resources={r"/*": {"origins": [
+ALLOWED_ORIGINS = [
     "http://localhost:5173/",
     "http://127.0.0.1:5173",
-    "https://medscanai.vercel.app"
-]}}, supports_credentials=True)
+    "http://localhost:4173/",
+    "http://127.0.0.1:4173",
+    "https://medscanai.vercel.app",
+]
+
+CORS(
+    app,
+    origins=ALLOWED_ORIGINS,
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    methods=["GET", "POST", "OPTIONS"],
+)
+# ensure CORS headers are present even on errors
+
+
+@app.after_request
+def add_cors_headers(resp):
+    origin = request.headers.get("Origin", "")
+    if origin in ALLOWED_ORIGINS:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Vary"] = "Origin"
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
 
 
 # Load database URL
@@ -125,29 +148,16 @@ def predict():
         image_url = f"/static/uploads/mri/{filename}"
         print(f"✅ Saved file at {filepath}")
 
-        # --- Run model prediction ---
+        # --- Run model prediction (fast) ---
         result, confidence, all_probs = predict_image(
             open(filepath, "rb").read())
         print("🧠 Model result:", result, "| Confidence:", confidence)
 
-        # --- Generate Grad-CAM heatmap ---
-        heatmap_filename = f"{uuid.uuid4().hex}_heatmap.jpg"
-        heatmap_save_path = os.path.join(upload_folder, heatmap_filename)
-        heatmap_url = None
-
-        try:
-            heatmap_path = generate_vit_gradcam(
-                model, filepath, processor, device, save_path=heatmap_save_path
-            )
-            if heatmap_path and os.path.exists(heatmap_path):
-                heatmap_url = f"/static/uploads/mri/{os.path.basename(heatmap_path)}"
-                print(f"Grad-CAM generated successfully → {heatmap_url}")
-            else:
-                print("[WARN] Grad-CAM file not created")
-        except Exception as e:
-            print("[ERROR] Grad-CAM generation exception:", e)
-            print(traceback.format_exc())
-            heatmap_url = None  # prevent crash if Grad-CAM fails
+        # --- Prepare database connection ---
+        conn = get_db_connection()
+        cur = conn.cursor()
+        prediction_id = uuid.uuid4()
+        created_at = datetime.utcnow()
 
         # --- Tumor detail lookup ---
         result_map = {
@@ -160,29 +170,14 @@ def predict():
         }
         detail_key = result_map.get(result.lower(), "unknown")
         detail = TUMOR_DETAILS.get(detail_key, {
-            "title": "Unknown", "description": "No details available", "bullets": []})
+            "title": "Unknown", "description": "No details available", "bullets": []
+        })
 
-        # --- Prepare DB save ---
-        conn = get_db_connection()
-        cur = conn.cursor()
-        prediction_id = uuid.uuid4()
-        created_at = datetime.utcnow()
-
-        print(f"Saving prediction (guest={guest_upload})")
-
-        # Insert prediction
-        if user_id:
-            cur.execute("""
-                INSERT INTO "Prediction" (id, result, confidence, image_url, heatmap_url, user_id, created_at, guest_upload)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (str(prediction_id), result, confidence, image_url,
-                  heatmap_url or '', str(user_id), created_at, guest_upload))
-        else:
-            cur.execute("""
-                INSERT INTO "Prediction" (id, result, confidence, image_url, heatmap_url, created_at, guest_upload)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (str(prediction_id), result, confidence,
-                  image_url, heatmap_url or '', created_at, guest_upload))
+        # --- Insert prediction (without heatmap yet) ---
+        cur.execute("""
+            INSERT INTO "Prediction" (id, result, confidence, image_url, heatmap_url, user_id, created_at, guest_upload)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (str(prediction_id), result, confidence, image_url, '', str(user_id) if user_id else None, created_at, guest_upload))
 
         # --- Auto-report ---
         auto_notes = f"{detail['title']}\n\n{detail['description']}\n\n" + \
@@ -196,17 +191,45 @@ def predict():
         conn.commit()
         cur.close()
         conn.close()
-
         print("✅ Prediction + report saved successfully")
 
-        # --- Response ---
+        # --- Start Grad-CAM in background thread ---
+        def generate_heatmap_async(pred_id, file_path, upload_dir):
+            try:
+                heatmap_filename = f"{uuid.uuid4().hex}_heatmap.jpg"
+                heatmap_save_path = os.path.join(upload_dir, heatmap_filename)
+                generate_vit_gradcam(
+                    model, file_path, processor, device, save_path=heatmap_save_path)
+
+                if os.path.exists(heatmap_save_path):
+                    heatmap_url = f"/static/uploads/mri/{os.path.basename(heatmap_save_path)}"
+                    print(f"✅ Grad-CAM done -> {heatmap_url}")
+
+                    conn_bg = get_db_connection()
+                    cur_bg = conn_bg.cursor()
+                    cur_bg.execute("""
+                        UPDATE "Prediction" SET heatmap_url = %s WHERE id = %s
+                    """, (heatmap_url, str(pred_id)))
+                    conn_bg.commit()
+                    cur_bg.close()
+                    conn_bg.close()
+                else:
+                    print("[WARN] Grad-CAM not created.")
+            except Exception as e:
+                print("[ERROR] Background Grad-CAM failed:", e)
+                print(traceback.format_exc())
+
+        Thread(target=generate_heatmap_async, args=(
+            prediction_id, filepath, upload_folder), daemon=True).start()
+
+        # --- Respond immediately ---
         return jsonify({
             'id': str(prediction_id),
             'result': result,
             'confidence': confidence,
             'probabilities': all_probs,
             'image_url': image_url,
-            'heatmap_url': heatmap_url,
+            'heatmap_url': None,  # will be updated later
             'created_at': created_at.isoformat(),
             'guest_upload': guest_upload
         }), 201
@@ -294,6 +317,37 @@ def get_predictions(user_id):
 
     except Exception as e:
         app.logger.error(f"Error fetching predictions: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/prediction/<prediction_id>", methods=["GET"])
+def get_prediction(prediction_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, result, confidence, image_url, heatmap_url, created_at
+            FROM "Prediction"
+            WHERE id = %s
+        """, (prediction_id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not row:
+            return jsonify({"error": "Prediction not found"}), 404
+
+        return jsonify({
+            "id": str(row[0]),
+            "result": row[1],
+            "confidence": float(row[2]) if row[2] is not None else None,
+            "image_url": row[3],
+            "heatmap_url": row[4],
+            "created_at": row[5].isoformat() if row[5] else None,
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching prediction: {e}")
         return jsonify({"error": str(e)}), 500
 
 

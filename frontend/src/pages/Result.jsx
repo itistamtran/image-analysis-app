@@ -1,4 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import axios from "axios";
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
@@ -73,7 +75,9 @@ const tumorDetails = {
 export default function ResultPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { prediction, confidence, image_url, heatmap_url } = location.state || {};
+  const { id, prediction, confidence, image_url, heatmap_url } = location.state || {};
+  const [currentHeatmap, setCurrentHeatmap] = useState(heatmap_url || null);
+  const [polling, setPolling] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user') || 'null');
 
@@ -81,19 +85,6 @@ export default function ResultPage() {
   const fullImageUrl = image_url?.startsWith('http')
     ? image_url
     : `${API_BASE}${image_url}`;
-  const fullHeatmapUrl = heatmap_url?.startsWith('http')
-    ? heatmap_url
-    : `${API_BASE}${heatmap_url}`;
-
-  // fallback for heatmap
-  const formatUrl = (url) => {
-    if (!url) return null;
-    return url.startsWith('http') ? url : `${API_BASE}${url}`;
-  };
-
-  const heatmapUrl = formatUrl(
-    heatmap_url || user?.last_scan?.heatmap_url
-  );
 
   const normalizedPrediction = prediction
     ? prediction.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
@@ -101,13 +92,39 @@ export default function ResultPage() {
 
   const info = tumorDetails[normalizedPrediction];
 
+  // condition for tumor types vs no-tumor types
+  const isTumorType = ["Glioma", "Meningioma", "Pituitary"].includes(normalizedPrediction);
+
+  // --- Poll for Grad-CAM updates ---
+  useEffect(() => {
+    if (!id || currentHeatmap) return;
+
+    setPolling(true);
+    const interval = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/prediction/${id}`);
+        const updated = res.data;
+        if (updated.heatmap_url) {
+          setCurrentHeatmap(`${API_BASE}${updated.heatmap_url}`);
+          clearInterval(interval);
+          setPolling(false);
+          console.log("✅ Heatmap ready:", updated.heatmap_url);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [id, currentHeatmap]);
+
   if (!info) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-red-500 bg-black">
+      <div className="flex flex-col items-center justify-center min-h-screen tracking-wider text-red-500 font-neue-machina-bold" style={{ backgroundImage: "url('/bg-gradient.jpg')" }} >
         <p className="text-lg">No result found. Please upload an image.</p>
         <button
           onClick={() => navigate('/Upload')}
-          className="px-6 py-2 mt-6 text-white rounded bg-cyan-600 hover:bg-cyan-500"
+          className="px-6 py-2 mt-6 tracking-wider text-white rounded font-neue-machina-bold bg-cyan-600 hover:bg-cyan-500"
         >
           Back to Upload
         </button>
@@ -115,8 +132,6 @@ export default function ResultPage() {
     );
   }
 
-  // condition for tumor types vs no-tumor types
-  const isTumorType = ["Glioma", "Meningioma", "Pituitary"].includes(normalizedPrediction);
 
   return (
     <div className="relative flex flex-col min-h-screen text-white">
@@ -176,6 +191,22 @@ export default function ResultPage() {
                   ))}
                 </div>
               )}
+
+              {/* bullets for tumor types below full-width */}
+              {isTumorType && (
+                <div className="space-y-4 leading-normal text-left text-white font-neue-machina">
+                  {info.bullets.map((point, idx) => {
+                    const [label, ...contentParts] = point.split(':');
+                    const content = contentParts.join(':').trim();
+                    return (
+                      <div key={idx}>
+                        <p className=" text-cyan-400">{label.trim()}:</p>
+                        <p className="mt-1">{content}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Right-side image column */}
@@ -204,18 +235,22 @@ export default function ResultPage() {
 
                 {/* Heatmap */}
                 {user && (
-                  heatmapUrl ? (
+                  currentHeatmap ? (
                     <div className="flex flex-col items-center">
                       <img
-                        src={fullHeatmapUrl}
+                        src={currentHeatmap}
                         alt="Grad-CAM Heatmap"
                         className="w-[160px] h-[160px] md:w-[200px] md:h-[200px] rounded shadow-lg"
                       />
-                      <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">Grad-CAM Heatmap</p>
+                      <p className="mt-2 text-sm tracking-wider text-cyan-300 font-neue-machina">
+                        Grad-CAM Heatmap
+                      </p>
                     </div>
                   ) : (
                     <p className="mt-4 text-sm tracking-wider text-center text-cyan-300 font-neue-machina md:text-right">
-                      Grad-CAM Heatmap not generated for this scan.
+                      {polling
+                        ? "⏳ Generating Grad-CAM Heatmap..."
+                        : "Grad-CAM Heatmap not generated for this scan."}
                     </p>
                   )
                 )}
@@ -223,21 +258,7 @@ export default function ResultPage() {
             </div>
           </div>
 
-          {/* bullets for tumor types below full-width */}
-          {isTumorType && (
-            <div className="space-y-4 leading-normal text-left text-white font-neue-machina">
-              {info.bullets.map((point, idx) => {
-                const [label, ...contentParts] = point.split(':');
-                const content = contentParts.join(':').trim();
-                return (
-                  <div key={idx}>
-                    <p className=" text-cyan-400">{label.trim()}:</p>
-                    <p className="mt-1">{content}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+
 
           <div className="flex justify-center">
             <button
