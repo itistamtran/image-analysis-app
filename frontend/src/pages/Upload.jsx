@@ -54,12 +54,17 @@ export default function UploadPage() {
       setConfidence(conf);
 
       // Build absolute URLs
+      // Build absolute URLs safely
       const fullImageUrl = image_url?.startsWith('http')
         ? image_url
         : `${API_BASE}${image_url}`;
-      const fullHeatmapUrl = heatmap_url?.startsWith('http')
-        ? heatmap_url
-        : `${API_BASE}${heatmap_url}`;
+
+      const fullHeatmapUrl =
+        heatmap_url && typeof heatmap_url === "string" && heatmap_url.trim() !== ""
+          ? (heatmap_url.startsWith('http')
+            ? heatmap_url
+            : `${API_BASE}${heatmap_url}`)
+          : null;
 
       if (user) {
         let storedScans = JSON.parse(localStorage.getItem("scans") || "[]");
