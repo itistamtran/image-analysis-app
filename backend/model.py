@@ -213,7 +213,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
             cred_dict = json.loads(firebase_key_data)
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred, {
-                "storageBucket": "medscanai-tam.appspot.com"
+                "storageBucket": "medscanai-tam.firebasestorage.app"
             })
 
         bucket = storage.bucket()

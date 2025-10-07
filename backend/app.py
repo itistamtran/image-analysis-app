@@ -39,7 +39,7 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(json.loads(
         os.getenv("FIREBASE_SERVICE_ACCOUNT")))
     firebase_admin.initialize_app(
-        cred, {"storageBucket": "medscanai-tam.appspot.com"})
+        cred, {"storageBucket": "medscanai-tam.firebasestorage.app"})
 
 print("✅ Firebase initialized:", firebase_admin.get_app().name)
 print("✅ Bucket name:", storage.bucket().name)
@@ -57,7 +57,7 @@ CORS(
     origins=ALLOWED_ORIGINS,
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-    methods=["GET", "POST", "OPTIONS", "DELETE", "PUT"],
+    methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
 )
 # ensure CORS headers are present even on errors
 
@@ -70,7 +70,7 @@ def add_cors_headers(resp):
         resp.headers["Vary"] = "Origin"
         resp.headers["Access-Control-Allow-Credentials"] = "true"
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Methods"] = "GET,PUT,POST,DELETE,OPTIONS"
     return resp
 
 
