@@ -22,4 +22,4 @@ RUN pip install --upgrade pip \
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app", "--timeout", "300", "--workers", "1", "--threads", "1"]
