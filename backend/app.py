@@ -12,8 +12,11 @@ import json
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
-from datetime import datetime
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
+from datetime import datetime
 from io import BytesIO
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -45,9 +48,9 @@ print("✅ Firebase initialized:", firebase_admin.get_app().name)
 print("✅ Bucket name:", storage.bucket().name)
 
 ALLOWED_ORIGINS = [
-    "http://localhost:5173/",
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:4173/",
+    "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
 ]
@@ -979,95 +982,74 @@ def generate_report(scan_id):
 
         user = session.query(User).filter_by(id=scan.user_id).first()
         report = session.query(Report).filter_by(prediction_id=scan.id).first()
-
         if not report:
             return jsonify({"error": "No report for this scan"}), 404
 
-        summary_text = report.notes
+        summary_text = report.notes or ""
         recs = json.loads(
             report.recommendations) if report.recommendations else []
 
         buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
-        width, height = letter
+        doc = SimpleDocTemplate(buffer, pagesize=letter,
+                                rightMargin=50, leftMargin=50,
+                                topMargin=50, bottomMargin=50)
 
-        y = height - 50
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y, f"Report for Scan ID: {scan.id}")
+        styles = getSampleStyleSheet()
+        styles.add(ParagraphStyle(name='TitleStyle', fontSize=14,
+                   leading=18, spaceAfter=10, fontName="Helvetica-Bold"))
+        styles.add(ParagraphStyle(name='BodyStyle', fontSize=12,
+                   leading=16, spaceAfter=10, fontName="Helvetica"))
 
-        y -= 25
-        p.setFont("Helvetica", 12)
-        p.drawString(
-            50, y, f"User: {user.name if user else 'Unknown'} | Email: {user.email if user else 'Unknown'}")
+        elements = []
 
-        y -= 25
-        p.drawString(
-            50, y, f"Date: {scan.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-
-        y -= 25
-        p.drawString(50, y, f"Final Prediction: {scan.result}")
-
-        y -= 25
+        # --- Header info ---
+        elements.append(
+            Paragraph(f"<b>Report for Scan ID:</b> {scan.id}", styles['TitleStyle']))
+        user_line = f"<b>User:</b> {user.name if user else 'Unknown'} &nbsp;&nbsp; <b>Email:</b> {user.email if user else 'Unknown'}"
+        elements.append(Paragraph(user_line, styles['BodyStyle']))
+        elements.append(Paragraph(
+            f"<b>Date:</b> {scan.created_at.strftime('%Y-%m-%d %H:%M:%S')}", styles['BodyStyle']))
+        elements.append(
+            Paragraph(f"<b>Final Prediction:</b> {scan.result}", styles['BodyStyle']))
         conf = f"{float(scan.confidence)*100:.2f}%" if scan.confidence else "N/A"
-        p.drawString(50, y, f"Confidence Score: {conf}")
+        elements.append(
+            Paragraph(f"<b>Confidence Score:</b> {conf}", styles['BodyStyle']))
+        elements.append(Spacer(1, 12))
 
-        # --- Embed MRI + Heatmap if available ---
-        try:
-            # MRI
-            if scan.image_url:
-                image_path = os.path.join(
-                    app.root_path, scan.image_url.lstrip("/"))
-                image_path = os.path.abspath(image_path)
-                print("MRI path in report:", image_path)
-                if os.path.exists(image_path):
-                    p.drawImage(image_path, 50, 400, width=200,
-                                height=200, preserveAspectRatio=True)
-                else:
-                    print("MRI not found at", image_path)
-                    p.setFont("Helvetica", 10)
-                    p.drawString(50, 300, "[MRI image missing]")
+        # --- Images ---
+        mri_path = os.path.join(app.root_path, scan.image_url.lstrip(
+            "/")) if scan.image_url else None
+        heatmap_path = os.path.join(app.root_path, scan.heatmap_url.lstrip(
+            "/")) if scan.heatmap_url else None
 
-            # Heatmap
-            if scan.heatmap_url:
-                heatmap_path = os.path.join(
-                    app.root_path, scan.heatmap_url.lstrip("/"))
-                heatmap_path = os.path.abspath(heatmap_path)
-                print("Heatmap path in report:", heatmap_path)
-                if os.path.exists(heatmap_path):
-                    p.drawImage(heatmap_path, 300, 400, width=200,
-                                height=200, preserveAspectRatio=True)
-                else:
-                    print("Heatmap not found at", heatmap_path)
-                    p.setFont("Helvetica", 10)
-                    p.drawString(300, 300, "[Heatmap not available]")
+        img_row = []
+        if mri_path and os.path.exists(mri_path):
+            img_row.append(Image(mri_path, width=2.3*inch, height=2.3*inch))
+        if heatmap_path and os.path.exists(heatmap_path):
+            img_row.append(
+                Image(heatmap_path, width=2.3*inch, height=2.3*inch))
+        if img_row:
+            from reportlab.platypus import Table
+            elements.append(
+                Table([img_row], hAlign='LEFT', spaceBefore=10, spaceAfter=20))
 
-        except Exception as e:
-            print("Could not embed MRI/heatmap in PDF:", e)
-            p.setFont("Helvetica", 10)
-            p.drawString(50, 280, "[Error embedding images in report]")
+        # --- Summary Report ---
+        elements.append(
+            Paragraph("<b>Summary Report</b>", styles['TitleStyle']))
+        elements.append(Paragraph(summary_text.replace(
+            "\n", "<br/>"), styles['BodyStyle']))
+        elements.append(Spacer(1, 12))
 
-        # Summary
-        y -= 300
-        p.setFont("Helvetica-Bold", 13)
-        p.drawString(50, y, "Summary Report")
-        y -= 25
-        p.setFont("Helvetica", 12)
-        text = p.beginText(50, y)
-        text.textLines(summary_text)
-        p.drawText(text)
+        # --- Recommendations ---
+        elements.append(
+            Paragraph("<b>Recommendations:</b>", styles['TitleStyle']))
+        if recs:
+            for rec in recs:
+                elements.append(Paragraph(f"• {rec}", styles['BodyStyle']))
+        else:
+            elements.append(Paragraph("None provided.", styles['BodyStyle']))
 
-        # Recommendations
-        y -= 120
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, y, "Recommendations:")
-        y -= 20
-        p.setFont("Helvetica", 12)
-        for rec in recs:
-            p.drawString(70, y, f"• {rec}")
-            y -= 20
-
-        p.showPage()
-        p.save()
+        doc.build(elements)
         buffer.seek(0)
 
         return send_file(
@@ -1076,6 +1058,7 @@ def generate_report(scan_id):
             download_name=f"scan_{scan.id}_report.pdf",
             mimetype="application/pdf"
         )
+
     finally:
         session.close()
 
