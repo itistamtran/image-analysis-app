@@ -1,16 +1,18 @@
-from werkzeug.wrappers import Request, Response
-from flask import Flask, request, jsonify, Response, send_file
-from flask_cors import CORS
+# Load environment variables early
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+# Firebase imports
 import firebase_admin
 from firebase_admin import storage, credentials, auth as firebase_auth
+
 import uuid
 import psycopg2
 import bcrypt
 import requests
 import traceback
 import json
-from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -21,32 +23,34 @@ from io import BytesIO
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from itsdangerous import SignatureExpired, BadSignature
-from utils.mail_config import init_mail
-from utils.email_utils import validate_email, send_verification_email, get_serializer
-from tumor_details import TUMOR_DETAILS
-from model import model, processor, device, predict_image, generate_vit_gradcam
-from models import Prediction, User, Report, Log
-import os
-from dotenv import load_dotenv
 from threading import Thread
 
-load_dotenv()  # load from .env file
+from models import Prediction, User, Report, Log, Base
+from model import model, processor, device, predict_image, generate_vit_gradcam
+from tumor_details import TUMOR_DETAILS
+from utils.email_utils import validate_email, send_verification_email, get_serializer
+from utils.mail_config import init_mail
 
+# Extensions and routes (init after env)
+from routes.reset_password import reset_bp
+from extensions import db, init_engine, SessionLocal
+
+# Imports for Flask, DB, and utilities
+from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, Response, send_file
+from flask_cors import CORS
+
+#  Other utilities and app-specific modules
+
+
+# Create Flask app
 app = Flask(
     __name__,
     static_folder="static",        # relative to backend/
     static_url_path="/static"      # URL path prefix
 )
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate(json.loads(
-        os.getenv("FIREBASE_SERVICE_ACCOUNT")))
-    firebase_admin.initialize_app(
-        cred, {"storageBucket": "medscanai-tam.appspot.com"})
-
-print("✅ Firebase initialized:", firebase_admin.get_app().name)
-print("✅ Bucket name:", storage.bucket().name)
-
+# CORS setup
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -54,15 +58,13 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
 ]
-
 CORS(
     app,
-    origins=ALLOWED_ORIGINS,
+    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
 )
-# ensure CORS headers are present even on errors
 
 
 @app.after_request
@@ -77,31 +79,18 @@ def add_cors_headers(resp):
     return resp
 
 
-# Load database URL
+# Database connection setup
 DATABASE_URL = os.getenv("NEON_DATABASE_URL")
-
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set. Check .env file.")
 
-try:
-    engine = create_engine(DATABASE_URL)
-    print("Database connected successfully.")
-except Exception as e:
-    print("Database connection failed:", e)
+# Initialize SQLAlchemy engine and session via extensions
+engine = init_engine(DATABASE_URL)
+Base.metadata.bind = engine
+print("✅ Database connected successfully.")
 
 
-app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
-init_mail(app)
-
-# Path: backend/static/uploads/mri
-UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# --- Database connection helper ---
-
-
+# Helper to get raw connection
 def get_db_connection():
     dsn = os.getenv("NEON_DATABASE_URL")
     if not dsn:
@@ -118,6 +107,28 @@ def get_db_connection():
     return conn
 
 
+# Path: backend/static/uploads/mri
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Load env + secret key
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
+
+# Initialize mail (from mail_config.py)
+init_mail(app)
+
+# Database config for Flask-SQLAlchemy
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("NEON_DATABASE_URL")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Initialize extensions
+db.init_app(app)
+
+# Register routes
+app.register_blueprint(reset_bp)
+
 # Load service account from Railway environment variable
 service_account_info = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
 cred = credentials.Certificate(service_account_info)
@@ -125,6 +136,79 @@ cred = credentials.Certificate(service_account_info)
 # Initialize only once
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
+
+print("✅ Firebase initialized:", firebase_admin.get_app().name)
+
+
+# Load environment variables
+RECAPTCHA_SECRET = os.getenv("RECAPTCHA_SECRET_KEY")
+RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
+RECAPTCHA_API_KEY = os.getenv("RECAPTCHA_API_KEY")
+GOOGLE_CLOUD_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
+
+
+@app.route("/verify_recaptcha", methods=["POST"])
+def verify_recaptcha():
+    """Verify reCAPTCHA Enterprise token."""
+    token = request.json.get("token")
+    if not token:
+        return jsonify({"success": False, "message": "Missing reCAPTCHA token"}), 400
+
+    if not RECAPTCHA_API_KEY or not GOOGLE_CLOUD_PROJECT_ID:
+        return jsonify({"success": False, "message": "Missing API key or project ID"}), 500
+
+    # Google reCAPTCHA Enterprise API endpoint
+    verify_url = f"https://recaptchaenterprise.googleapis.com/v1/projects/{GOOGLE_CLOUD_PROJECT_ID}/assessments?key={RECAPTCHA_API_KEY}"
+
+    # Request payload
+    payload = {
+        "event": {
+            "token": token,
+            "expectedAction": "submit",  # must match frontend action
+            "siteKey": RECAPTCHA_SITE_KEY
+        }
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        response = requests.post(verify_url, headers=headers, json=payload)
+        result = response.json()
+        print("reCAPTCHA Enterprise response:", result)  # Debug log
+
+        # Check token validity
+        token_props = result.get("tokenProperties", {})
+        if not token_props.get("valid", False):
+            return jsonify({
+                "success": False,
+                "message": "Invalid or expired token",
+                "details": token_props
+            }), 400
+
+        # Check risk score (0.0 = bot, 1.0 = human)
+        score = result.get("riskAnalysis", {}).get("score", 0)
+        if score >= 0.5:
+            return jsonify({"success": True, "score": score}), 200
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Low confidence score",
+                "score": score
+            }), 403
+
+    except Exception as e:
+        print("Error verifying reCAPTCHA:", e)
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/verify_recaptcha", methods=["OPTIONS"])
+def verify_recaptcha_options():
+    response = jsonify({"message": "CORS preflight OK"})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+    response.headers.add("Access-Control-Allow-Headers",
+                         "Content-Type,Authorization,X-Requested-With")
+    return response, 200
 
 
 @app.route("/test-cors", methods=["GET", "OPTIONS"])

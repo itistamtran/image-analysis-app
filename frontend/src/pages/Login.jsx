@@ -176,6 +176,13 @@ export default function LoginPage() {
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-neue-machina"
                         />
+                        <p
+                            className="mt-2 text-sm text-right cursor-pointer text-cyan-400 hover:text-cyan-300 hover:underline font-neue-machina"
+                            onClick={() => navigate("/forgot-password")}
+                        >
+                            Forgot your password?
+                        </p>
+
                         <div className="flex justify-center">
                             <button
                                 type="submit"

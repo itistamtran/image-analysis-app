@@ -6,6 +6,8 @@ import Footer from '../components/Footer';
 import Header from '../components/Header';
 import { FaGithub, FaLinkedin, FaGlobe } from 'react-icons/fa';
 
+import API_BASE from "../utils/config";
+
 export default function Contact() {
   const [formData, setFormData] = useState({
     name: '',
@@ -22,34 +24,76 @@ export default function Contact() {
     if (name === 'email') setEmailError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(false);
+    setSubmitted(false);
+    setEmailError("");
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setEmailError('Please enter a valid email address.');
+      setEmailError("Please enter a valid email address.");
       return;
     }
 
-    emailjs.send(
-      import.meta.env.VITE_EMAILJS_SERVICE_ID,
-      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-      formData,
-      import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-    )
+    try {
+      // Ensure reCAPTCHA Enterprise is loaded
+      if (!window.grecaptcha || !window.grecaptcha.enterprise) {
+        console.error("reCAPTCHA Enterprise not loaded yet.");
+        setError(true);
+        return;
+      }
 
-      .then(
-        () => {
-          setSubmitted(true);
-          setError(false);
-          setFormData({ name: '', email: '', message: '' });
-        },
-        () => {
-          console.error("EmailJS Error:", err);
-          setError(true);
-          setSubmitted(false);
-        }
+      // Execute reCAPTCHA and get token
+      const token = await window.grecaptcha.enterprise.execute(
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+        { action: "submit" }
       );
+
+      console.log("Generated reCAPTCHA token:", token);
+
+      // Verify token with backend
+      const verifyResponse = await fetch(`${API_BASE}/verify_recaptcha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+
+      if (!verifyResponse.ok) {
+        console.error("Backend verification request failed:", verifyResponse.status);
+        setError(true);
+        return;
+      }
+
+      const verifyData = await verifyResponse.json();
+
+      // Check verification result
+      if (!verifyData.success || (verifyData.score && verifyData.score < 0.5)) {
+        console.error("reCAPTCHA verification failed:", verifyData);
+        setError(true);
+        return;
+      }
+
+      // If verification passed, send the email
+      const result = await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        {
+          ...formData,
+          "g-recaptcha-response": token,
+        },
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
+
+      console.log("Email sent successfully:", result.text);
+      setSubmitted(true);
+      setFormData({ name: "", email: "", message: "" });
+    } catch (err) {
+      console.error("Error in handleSubmit:", err);
+      setError(true);
+    }
   };
+
 
   return (
     <div className="relative flex flex-col min-h-screen text-white">
@@ -131,7 +175,7 @@ export default function Contact() {
                   placeholder="Your Name"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 tracking-wider text-white bg-transparent border rounded-md font-neue-machina border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   required
                 />
               </div>
@@ -143,7 +187,7 @@ export default function Contact() {
                   placeholder="your@email.com"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 tracking-wider text-white bg-transparent border rounded-md font-neue-machina border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   required
                 />
                 {emailError && <p className="mt-1 text-sm font-medium text-red-400">{emailError}</p>}
@@ -156,13 +200,32 @@ export default function Contact() {
                   value={formData.message}
                   onChange={handleChange}
                   rows="5"
-                  className="w-full px-4 py-2 text-white bg-transparent border rounded-md border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-4 py-2 tracking-wider text-white bg-transparent border rounded-md font-neue-machina border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   required
                 />
               </div>
-              <div className="pt-2">
-                <div className="g-recaptcha" data-sitekey="YOUR_SITE_KEY_HERE"></div>
+              <div className="mt-3 text-xs tracking-wider text-gray-400 font-neue-machina">
+                This site is protected by reCAPTCHA and <br />the Google {' '}
+                <a
+                  href="https://policies.google.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors duration-200 text-cyan-400 hover:underline hover:text-cyan-300"
+                >
+                  Privacy Policy
+                </a>{' '}
+                and{' '}
+                <a
+                  href="https://policies.google.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors duration-200 text-cyan-400 hover:underline hover:text-cyan-300"
+                >
+                  Terms of Service
+                </a>{' '}
+                apply.
               </div>
+
               <button
                 type="submit"
                 className="px-6 py-2 text-sm font-bold text-white transition duration-200 rounded-md bg-transparent hover:shadow-[0_0_12px_rgba(0,255,255,0.4)]"

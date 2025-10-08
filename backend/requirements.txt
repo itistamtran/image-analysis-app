@@ -6,6 +6,7 @@ Flask-Mail==0.9.1
 gunicorn==21.2.0
 itsdangerous==2.2.0
 Werkzeug==3.0.3
+click==8.1.7
 
 # --- Firebase & authentication ---
 firebase-admin==6.5.0
@@ -37,5 +38,5 @@ opencv-python==4.9.0.80
 gdown==5.2.0
 git+https://github.com/jacobgil/pytorch-grad-cam.git
 
-# --- Visualization/debug ---
+# --- Visualization / Debug ---
 matplotlib==3.8.3

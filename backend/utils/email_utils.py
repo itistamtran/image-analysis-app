@@ -43,10 +43,25 @@ def send_verification_email(email):
     verify_url = f"{backend_url}/verify/{token}"
 
     msg = Message(
-        "Verify Your Email",
-        sender=app.config["MAIL_DEFAULT_SENDER"],
+        subject="Verify Your Email - MedScanAI",
+        sender=("MedScanAI Team", app.config["MAIL_DEFAULT_SENDER"]),
         recipients=[email],
-        body=f"Please verify your email by clicking this link: {verify_url}"
     )
 
-    mail.send(msg)
+    msg.html = f"""
+    <div style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 40px; color: white;">
+      <div style="max-width: 600px; margin: auto; background: linear-gradient(135deg, #004aad, #5de0e6); border-radius: 12px; padding: 40px; text-align: center;">
+        <img src="https://medscanai.vercel.app/logo-MedScanAI.png" alt="MedScanAI" style="width: 100px; margin-bottom: 20px;" />
+        <h2 style="margin-bottom: 16px;">Welcome to MedScanAI</h2>
+        <p style="font-size: 16px; color: #e0f2fe;">Thanks for signing up! Please verify your email to get started.</p>
+        <a href="{verify_url}" style="display: inline-block; margin-top: 30px; background: white; color: #004aad; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+          Verify My Email
+        </a>
+        <p style="margin-top: 40px; font-size: 14px; color: #e2e8f0;">If you didn’t create an account, you can safely ignore this email.</p>
+        <p style="margin-top: 10px; font-size: 12px; color: #94a3b8;">© 2025 MedScanAI. All rights reserved.</p>
+      </div>
+    </div>
+    """
+
+    with app.app_context():
+        mail.send(msg)

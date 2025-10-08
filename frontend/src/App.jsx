@@ -10,7 +10,8 @@ import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import PendingVerification from "./pages/PendingVerification";
 import Unauthorized from "./pages/Unauthorized";
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from "./pages/ResetPassword";
 import CustomCursor from './components/CustomCursor';
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -28,6 +29,8 @@ function App() {
         <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="/upload" element={<Upload />} />
         <Route path="/result" element={<Result />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
         {/* Dashboards */}
         <Route

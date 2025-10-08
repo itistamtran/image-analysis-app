@@ -7,3 +7,7 @@
 * {
   cursor: none !important;
 }
+
+.grecaptcha-badge {
+  visibility: hidden !important;
+}

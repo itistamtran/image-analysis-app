@@ -5,6 +5,7 @@ mail = Mail()
 
 
 def init_mail(app):
+    """Initialize Flask-Mail with app configuration"""
     app.config["MAIL_SERVER"] = "smtp.gmail.com"
     app.config["MAIL_PORT"] = 587
     app.config["MAIL_USE_TLS"] = True
