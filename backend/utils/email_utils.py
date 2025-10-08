@@ -63,5 +63,10 @@ def send_verification_email(email):
     </div>
     """
 
-    with app.app_context():
-        mail.send(msg)
+    try:
+        with app.app_context():
+            mail.send(msg)
+        app.logger.info(f"✅ Verification email sent to {email}")
+    except Exception as e:
+        app.logger.error(f"❌ Failed to send verification email to {email}: {e}")
+
