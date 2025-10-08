@@ -3,10 +3,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Firebase imports
 import firebase_admin
 from firebase_admin import storage, credentials, auth as firebase_auth
-
 import uuid
 import psycopg2
 import bcrypt
@@ -24,24 +22,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from itsdangerous import SignatureExpired, BadSignature
 from threading import Thread
-
 from models import Prediction, User, Report, Log, Base
 from model import model, processor, device, predict_image, generate_vit_gradcam
 from tumor_details import TUMOR_DETAILS
 from utils.email_utils import validate_email, send_verification_email, get_serializer
 from utils.mail_config import init_mail
-
-# Extensions and routes (init after env)
 from routes.reset_password import reset_bp
 from extensions import db, init_engine, SessionLocal
-
-# Imports for Flask, DB, and utilities
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
-
-#  Other utilities and app-specific modules
 
 
 # Create Flask app
@@ -57,6 +48,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
+    "https://medscanai.up.railway.app",
 ]
 CORS(
     app,
