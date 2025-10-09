@@ -12,6 +12,8 @@ import PendingVerification from "./pages/PendingVerification";
 import Unauthorized from "./pages/Unauthorized";
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from "./pages/ResetPassword";
+import VerifiedPage from "./pages/VerifiedPage";
+
 import CustomCursor from './components/CustomCursor';
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -31,6 +33,7 @@ function App() {
         <Route path="/result" element={<Result />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/verify/:token" element={<VerifiedPage />} />
 
         {/* Dashboards */}
         <Route

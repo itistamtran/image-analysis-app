@@ -25,7 +25,7 @@ from threading import Thread
 from models import Prediction, User, Report, Log, Base
 from model import model, processor, device, predict_image, generate_vit_gradcam
 from tumor_details import TUMOR_DETAILS
-from utils.email_utils import validate_email, send_verification_email, get_serializer
+from utils.email_utils import validate_email, send_verification_email, get_serializer, verify_bp
 from utils.mail_config import init_mail
 from routes.reset_password import reset_bp
 from extensions import db, init_engine, SessionLocal
@@ -41,6 +41,7 @@ app = Flask(
     static_folder="static",        # relative to backend/
     static_url_path="/static"      # URL path prefix
 )
+
 # CORS setup
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -48,6 +49,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
+    "https://www.medscanai.net",
     "https://medscanai.up.railway.app",
 ]
 CORS(
@@ -120,6 +122,7 @@ db.init_app(app)
 
 # Register routes
 app.register_blueprint(reset_bp)
+app.register_blueprint(verify_bp)
 
 # Load service account from Railway environment variable
 service_account_info = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT"])
@@ -569,8 +572,7 @@ def signup():
         # password logic: hash only if it's not Google OAuth
         hashed_password = None
         if password and password != "google-oauth":
-            hashed_password = bcrypt.hashpw(password.encode(
-                "utf-8"), bcrypt.gensalt()).decode("utf-8")
+            hashed_password = generate_password_hash(password)
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -616,9 +618,11 @@ def signup():
         user_id = cur.fetchone()[0]
         conn.commit()
 
-        # Send verification email (only if not Google signup)
-        if password != "google-oauth":
+        # Send verification email
+        try:
             send_verification_email(email)
+        except Exception as e:
+            app.logger.error(f"Failed to send verification email to {email}: {e}")
 
         return jsonify({
             "message": "User created, please verify your email before logging in.",
@@ -654,6 +658,32 @@ def verify_npi(npi_number):
     return False, None
 
 
+@app.route("/sync_verification", methods=["POST"])
+def sync_verification():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute('UPDATE "User" SET verification_status=%s WHERE email=%s', ("VERIFIED", email))
+        conn.commit()
+
+        return jsonify({"message": "Verification synced"}), 200
+
+    except Exception as e:
+        app.logger.error(f"Verification sync error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        if 'cur' in locals():
+            cur.close()
+        if 'conn' in locals():
+            conn.close()
+
+
+"""
 @app.route("/verify/<token>", methods=["GET"])
 def verify_email(token):
     session = SessionLocal()
@@ -677,6 +707,8 @@ def verify_email(token):
     return (
         "<h2 style='text-align:center; margin-top:20%; font-family:sans-serif;'>✅ Email verified successfully!<br>You can now close this tab and log in.</h2>"
     )
+
+"""
 
 
 @app.route("/login/google", methods=['POST'])
@@ -785,7 +817,7 @@ def login():
 
         # Validate password (skip check for google-oauth)
         if password != "google-oauth":
-            if not bcrypt.checkpw(password.encode('utf-8'), hashed_pw.encode('utf-8')):
+            if not check_password_hash(hashed_pw, password):
                 return jsonify({"error": "Invalid password"}), 401
 
         # build profile dict

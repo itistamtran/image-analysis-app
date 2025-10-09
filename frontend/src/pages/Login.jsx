@@ -9,6 +9,8 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -28,11 +30,18 @@ export default function LoginPage() {
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError("");
+        setSuccess("");
+        
         try {
             const res = await axios.post(`${API_BASE}/login`, {
                 email,
                 password,
             });
+
+            // clear any previous user and scan data before saving new login
+            localStorage.clear();
 
             const raw = res.data.profile ? res.data.profile : res.data;
 
@@ -55,17 +64,35 @@ export default function LoginPage() {
                 }
             }
         } catch (err) {
+            const status = err.response?.status;
             const errorMsg = err.response?.data?.error || "Login failed";
 
-            // handle verification error
-            if (err.response?.status === 403) {
-                setError("Please check your email inbox and verify your account before logging in.");
+            if (status === 403) {
+                setError(
+                    "Your account is not verified yet. Please check your inbox or spam folder for the verification email."
+                );
+            } else if (status === 401) {
+                setError("Invalid email or password. Please try again.");
             } else {
                 setError(errorMsg);
             }
+        } finally {
+            setLoading(false);
         }
     };
 
+    // Resend verification email
+    const handleResendVerification = async () => {
+        try {
+            await axios.post(`${API_BASE}/resend-verification`, { email });
+            setError(""); // clear the error message
+            setSuccess("A new verification email has been sent. Please check your inbox or spam folder.");
+        } catch (err) {
+            console.error("Failed to resend verification email:", err);
+            setError("Failed to resend verification email. Please try again later.");
+            setSuccess(""); // clear success in case of failure
+        }
+    };
 
     // Google login
     const handleGoogleLogin = async () => {
@@ -126,7 +153,28 @@ export default function LoginPage() {
                         {/* Show redirect message if exists */}
                         {message && <p className="mt-4 mb-6 text-sm tracking-wider text-center cursor-pointer text-cyan-400 font-neue-machina">{message}</p>}
 
-                        {error && <p className="mb-4 text-red-400">{error}</p>}
+                        {/* Error Message */}
+                        {error && (
+                            <div className="p-3 mb-4 text-sm text-center text-red-200 border rounded-lg border-red-500/40 bg-red-900/40 font-neue-machina">
+                                {error}
+                                {(error.toLowerCase().includes("verify") || error.toLowerCase().includes("verified")) && (
+                                    <p
+                                        onClick={handleResendVerification}
+                                        className="mt-2 text-sm text-center cursor-pointer text-cyan-400 hover:underline hover:text-cyan-300 font-neue-machina"
+                                    >
+                                        Resend verification email
+                                    </p>
+                                )}
+
+                            </div>
+                        )}
+
+                        {/* Success Message */}
+                        {success && (
+                            <div className="p-3 mb-4 text-sm text-center text-green-200 border rounded-lg border-green-500/40 bg-green-900/40 font-neue-machina">
+                                {success}
+                            </div>
+                        )}
 
                         {/* Google Login Button */}
                         <div className="flex justify-center">
@@ -186,20 +234,36 @@ export default function LoginPage() {
                         <div className="flex justify-center">
                             <button
                                 type="submit"
-                                className="flex px-6 py-2 text-sm font-bold tracking-wider text-white transition duration-200 rounded-md bg-transparent hover:shadow-[0_0_12px_rgba(0,255,255,0.4)]"
+                                disabled={loading}
+                                className={`flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold tracking-wider text-white transition duration-200 rounded-md bg-transparent 
+                                    ${loading ? "opacity-60 cursor-not-allowed" : "hover:shadow-[0_0_12px_rgba(0,255,255,0.4)]"}`}
                                 style={{
-                                    border: '2px solid transparent',
-                                    backgroundImage: 'linear-gradient(#0f172a, #0f172a), linear-gradient(to right, #5de0e6, #004aad)',
-                                    backgroundOrigin: 'border-box',
-                                    backgroundClip: 'padding-box, border-box',
-                                    fontFamily: 'Neue Machina Bold, sans-serif',
-                                    letterSpacing: '0.15em',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
+                                    border: "2px solid transparent",
+                                    backgroundImage: "linear-gradient(#0f172a, #0f172a), linear-gradient(to right, #5de0e6, #004aad)",
+                                    backgroundOrigin: "border-box",
+                                    backgroundClip: "padding-box, border-box",
+                                    fontFamily: "Neue Machina Bold, sans-serif",
+                                    letterSpacing: "0.15em",
                                 }}
                             >
-                                Login
+                                {loading ? (
+                                    <>
+                                        <svg
+                                            className="w-4 h-4 mr-2 text-cyan-300 animate-spin"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                        </svg>
+                                            Logging in...
+                                    </>
+                                ) : (
+                                    "Login"
+                                )}
                             </button>
+
                         </div>
 
                         <p className="mt-4 mb-6 text-sm tracking-wider text-center text-cyan-400 font-neue-machina">

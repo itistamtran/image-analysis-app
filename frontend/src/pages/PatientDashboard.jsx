@@ -55,8 +55,11 @@ export default function PatientDashboard() {
 
             // show cached scans immediately
             const localScans = JSON.parse(localStorage.getItem("scans") || "[]");
-            if (localScans.length > 0) {
+            const cachedUser = JSON.parse(localStorage.getItem("user"));
+            if (localScans.length > 0 && cachedUser?.id === storedUser?.id) {
                 setScans(localScans);
+            } else {
+                localStorage.removeItem("scans");
             }
 
             // Fetch from backend

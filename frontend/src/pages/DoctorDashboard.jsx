@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Typography, Card, CardContent, Button, Box } from "@mui/material";
 import axios from "axios";
-
 import ProfileOverview from "../components/ProfileOverview";
-
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import API_BASE from "../utils/config";
