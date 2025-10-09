@@ -202,7 +202,7 @@ export default function SignupPage() {
                         </div>
 
                         <p className="mt-4 mb-6 text-sm tracking-wider text-center text-cyan-400 font-neue-machina">
-                            Don’t have an account?{" "}
+                            Already have an account?{" "}
                             <span
                                 onClick={() => navigate("/login")}
                                 className="cursor-pointer hover:underline hover:text-cyan-300 "

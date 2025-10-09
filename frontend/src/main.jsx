@@ -4,11 +4,11 @@ import App from './App.jsx';
 import './index.css';
 
 // Disable logs in production, but keep console.error for actual errors
-if (process.env.NODE_ENV === "production") {
-  console.log = () => { };
-  console.debug = () => { };
-  console.warn = () => { };
-}
+//if (process.env.NODE_ENV === "production") {
+  //console.log = () => { };
+  //console.debug = () => { };
+  //console.warn = () => { };
+//}
 
 // Capture and log critical errors
 window.addEventListener('error', (e) => {

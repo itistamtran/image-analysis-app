@@ -8,6 +8,8 @@ export default function VerifiedPage() {
 
   useEffect(() => {
     const verifyEmail = async () => {
+      console.log("API:", import.meta.env.VITE_API_BASE_URL);
+      console.log("Token:", token);
       try {
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/verify/${token}`
