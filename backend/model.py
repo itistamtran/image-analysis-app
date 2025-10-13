@@ -1,64 +1,57 @@
 import io
 from PIL import Image
-from transformers import ViTForImageClassification, ViTImageProcessor, ViTModel
+from transformers import AutoModelForImageClassification, AutoImageProcessor, ViTForImageClassification, ViTImageProcessor
 import zipfile
 import gdown
 import torch
 import cv2
 import os
 import numpy as np
-from pytorch_grad_cam.utils.image import show_cam_on_image
 from pytorch_grad_cam import GradCAM, EigenCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam.utils.reshape_transforms import vit_reshape_transform
-from pytorch_grad_cam import EigenCAM
 import firebase_admin
 from firebase_admin import storage, credentials
 import json
+from huggingface_hub import login
 
-# --- Setup paths ---
-BASE_DIR = os.path.dirname(__file__)
-MODEL_DIR = os.path.join(BASE_DIR, "ml_model", "vit_brain_tumor_best_model")
-MODEL_ZIP = os.path.join(BASE_DIR, "ml_model",
-                         "vit_brain_tumor_best_model.zip")
-MODEL_FOLDER = os.path.join(BASE_DIR, "ml_model")
-GDRIVE_URL = "https://drive.google.com/uc?id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+# Login to Hugging Face using token
+login(os.getenv("HUGGINGFACE_TOKEN"))
 
-# --- Download model if not present ---
-if not os.path.exists(MODEL_DIR):
-    os.makedirs(MODEL_FOLDER, exist_ok=True)
-    print("Model not found, downloading from Google Drive...")
+model_name = "itistamtran/vit_brain_tumor_best_model"
 
-    gdown.download(GDRIVE_URL, MODEL_ZIP, quiet=False)
-
-    print("Extracting model...")
-    with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
-        zip_ref.extractall(MODEL_FOLDER)
-
-    print("Model downloaded and extracted successfully!")
-
-# --- Check if model files exist ---
-config_path = os.path.join(MODEL_DIR, "config.json")
-
-# Extraction creates an extra nested folder
-nested_dir = os.path.join(MODEL_DIR, "vit_brain_tumor_best_model")
-if not os.path.exists(config_path) and os.path.exists(os.path.join(nested_dir, "config.json")):
-    print("Nested model folder detected, switching path...")
-    MODEL_DIR = nested_dir
-
-# --- Load model and processor ---
 try:
-    print(f"Loading model from: {MODEL_DIR}")
+    print(f"Downloading model from Hugging Face: {model_name}")
+    model = AutoModelForImageClassification.from_pretrained(
+        model_name, use_auth_token=True)
+    processor = AutoImageProcessor.from_pretrained(
+        model_name, use_auth_token=True)
+    print("✅ Model loaded successfully from Hugging Face.")
+
+except Exception as e:
+    print(f"❌ Failed to load from Hugging Face: {e}")
+    print("Trying fallback to local or Google Drive...")
+
+    BASE_DIR = os.path.dirname(__file__)
+    MODEL_FOLDER = os.path.join(BASE_DIR, "ml_model")
+    MODEL_ZIP = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model.zip")
+    MODEL_DIR = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model")
+    GDRIVE_URL = "https://drive.google.com/uc?id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+
+    if not os.path.exists(MODEL_DIR):
+        os.makedirs(MODEL_FOLDER, exist_ok=True)
+        print("Downloading model from Google Drive...")
+        gdown.download(GDRIVE_URL, MODEL_ZIP, quiet=False)
+
+        print("Extracting model...")
+        with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
+            zip_ref.extractall(MODEL_FOLDER)
+        print("✅ Model downloaded and extracted successfully.")
+
     model = ViTForImageClassification.from_pretrained(MODEL_DIR)
     processor = ViTImageProcessor.from_pretrained(MODEL_DIR)
-    print("✅ Model loaded successfully.")
-except Exception as e:
-    print(f"❌ Failed to load model from {MODEL_DIR}: {e}")
-    print("Listing contents for debug:")
-    for root, _, files in os.walk(MODEL_FOLDER):
-        for file in files:
-            print("   ", os.path.join(root, file))
-    raise
+    print("✅ Model loaded from local folder.")
+
 
 # --- Device setup ---
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
