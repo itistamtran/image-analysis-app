@@ -136,8 +136,8 @@ export default function Home() {
             <Box
               sx={{
                 width: {
-                  xs: `calc((90px * 4) + (16px * 3))`,
-                  sm: `calc((100px * 4) + (16px * 3))`,
+                  xs: `calc((43% * 2) + 16px)`,
+                  sm: `calc((100px * 2) + 16px)`,
                   md: `calc((120px * 4) + (16px * 3))`,
                 },
                 mx: 'auto',
