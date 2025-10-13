@@ -168,7 +168,7 @@ export default function ResultPage() {
         <Header />
       </div>
 
-      <main className="relative z-10 flex justify-center flex-grow px-4 py-16">
+      <main className="relative z-10 flex justify-center flex-grow px-10 py-16 mx-auto bg-center bg-cover sm:px-20 lg:px-30 xl:px-40">
         <div className="flex flex-col w-full max-w-4xl">
           <Typography variant="h3" component="h1" sx={{
             fontWeight: 'bold',

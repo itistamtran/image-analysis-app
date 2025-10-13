@@ -89,7 +89,7 @@ export default function PatientDashboard() {
 
     return (
         <div
-            className="relative flex flex-col min-h-screen px-16 mx-auto text-white bg-center bg-cover"
+            className="relative flex flex-col min-h-screen px-10 mx-auto text-white bg-center bg-cover sm:px-20 md:px-28 lg:px-32 xl:px-40"
             style={{ backgroundImage: "url('/bg-gradient.jpg')" }}
         >
             <div className="absolute inset-0 z-0 pointer-events-none bg-black/30" />
