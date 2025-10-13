@@ -143,7 +143,7 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-center flex-1">
-                <div className="md:w-[35%] bg-gradient-to-br from-cyan-500/30 to-blue-700/30 backdrop-blur-md p-6 rounded-xl ">
+                <div className="w-[85%] md:w-[35%] bg-gradient-to-br from-cyan-500/30 to-blue-700/30 backdrop-blur-md p-6 rounded-xl ">
                     <form
                         onSubmit={handleLogin}
                         className="space-y-6"

@@ -50,7 +50,7 @@ export default function Home() {
             <Typography
               component="h1"
               sx={{
-                fontSize: { xs: '3.5rem', sm: '3.5rem', md: '4rem', lg: '5rem', xl: '6rem', },
+                fontSize: { xs: '2.8rem', sm: '3.2rem', md: '4rem', lg: '5rem', xl: '6rem', },
                 fontWeight: 800,
                 fontFamily: '"Neue Machina", sans-serif',
                 mb: 2,

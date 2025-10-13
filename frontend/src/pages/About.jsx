@@ -19,7 +19,7 @@ export default function About() {
       <Header />
 
       <main className="relative z-10 flex flex-col flex-grow w-full px-5 py-10 mx-auto" style={{ maxWidth: '1200px' }}>
-        <div className="w-full mb-10">
+        <div className="w-full mb-10 text-center md:text-left">
           <Typography
             variant="h3"
             component="h1"
@@ -29,8 +29,8 @@ export default function About() {
               mb: 4,
               letterSpacing: '0.15em',
               fontSize: {
-                xs: '2.5rem',
-                sm: '3rem',
+                xs: '1.8rem',
+                sm: '2.8rem',
                 md: '3.5rem',
                 lg: '4rem',
                 xl: '5rem',

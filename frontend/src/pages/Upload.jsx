@@ -132,7 +132,7 @@ export default function UploadPage() {
       </div>
 
       {/* Main Upload Content */}
-      <main className="relative flex flex-col items-center justify-center flex-grow px-4 py-20 z-15">
+      <main className="relative flex flex-col items-center justify-center flex-grow px-10 py-20 z-15">
         <Typography
           variant="h3"
           component="h1"
