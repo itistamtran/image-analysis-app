@@ -95,17 +95,10 @@ export default function UploadPage() {
     } catch (err) {
       console.error(err);
 
-      // Axios network error (no response received)
-    if (err.message === "Network Error" || !err.response) {
+     if (err.message === "Network Error" || !err.response) {
       setError("ᶻ𝗓𐰁 The server is just waking up — please reload the page and try again.");
-      setTimeout(() => handleUpload(), 4000);
       return;
-    }
-
-    if (err.response?.status === 503 && err.response?.data?.status === "waking_up") {
-      setError("ᶻ𝗓𐰁 The server just woke up — please reload the page and try again.");
-      return;
-    }
+      }
       
       let msg = err.response?.data
         ? JSON.stringify(err.response.data, null, 2)
