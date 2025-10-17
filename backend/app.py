@@ -1,43 +1,41 @@
 # Load environment variables early
+from flask_cors import CORS
+from flask import Flask, request, jsonify, Response, send_file
+from werkzeug.utils import secure_filename
+from werkzeug.security import check_password_hash, generate_password_hash
+from extensions import db, init_engine, SessionLocal
+from routes.reset_password import reset_bp
+from utils.mail_config import init_mail
+from utils.email_utils import validate_email, send_verification_email, get_serializer, verify_bp
+from tumor_details import TUMOR_DETAILS
+from model import model, processor, device, predict_image, generate_vit_gradcam
+from models import Prediction, User, Report, Log, Base
+from threading import Thread
+from itsdangerous import SignatureExpired, BadSignature
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine
+from io import BytesIO
+import time
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.pagesizes import letter
+import json
+import traceback
+import requests
+import bcrypt
+import psycopg2
+import uuid
+from firebase_admin import storage, credentials, auth as firebase_auth
+import firebase_admin
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
-import firebase_admin
-from firebase_admin import storage, credentials, auth as firebase_auth
-import uuid
-import psycopg2
-import bcrypt
-import requests
-import traceback
-import json
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-from datetime import datetime
 # Record server start time
-import time
 start_time = time.time()
-
-from io import BytesIO
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from itsdangerous import SignatureExpired, BadSignature
-from threading import Thread
-from models import Prediction, User, Report, Log, Base
-from model import model, processor, device, predict_image, generate_vit_gradcam
-from tumor_details import TUMOR_DETAILS
-from utils.email_utils import validate_email, send_verification_email, get_serializer, verify_bp
-from utils.mail_config import init_mail
-from routes.reset_password import reset_bp
-from extensions import db, init_engine, SessionLocal
-from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
-from flask import Flask, request, jsonify, Response, send_file
-from flask_cors import CORS
-
 
 
 # Create Flask app
@@ -221,7 +219,7 @@ def predict():
     uptime = time.time() - start_time
 
     # If the app just woke up, send a friendly message
-    if uptime < 60:
+    if uptime < 5:
         print(f"[Wake check] Uptime: {uptime:.2f} seconds")
         return jsonify({"status": "waking_up", "message": "ᶻ𝗓𐰁 The server just woke up — please reload the page."}), 503
 
@@ -634,7 +632,8 @@ def signup():
         try:
             send_verification_email(email)
         except Exception as e:
-            app.logger.error(f"Failed to send verification email to {email}: {e}")
+            app.logger.error(
+                f"Failed to send verification email to {email}: {e}")
 
         return jsonify({
             "message": "User created, please verify your email before logging in.",
@@ -679,7 +678,8 @@ def sync_verification():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute('UPDATE "User" SET verification_status=%s WHERE email=%s', ("VERIFIED", email))
+        cur.execute(
+            'UPDATE "User" SET verification_status=%s WHERE email=%s', ("VERIFIED", email))
         conn.commit()
 
         return jsonify({"message": "Verification synced"}), 200

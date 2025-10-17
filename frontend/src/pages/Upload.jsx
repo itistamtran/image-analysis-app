@@ -103,7 +103,7 @@ export default function UploadPage() {
     }
 
     if (err.response?.status === 503 && err.response?.data?.status === "waking_up") {
-      setError("ᶻ𝗓𐰁 The server just woke up — please reload the page.");
+      setError("ᶻ𝗓𐰁 The server just woke up — please reload the page and try again.");
       return;
     }
       
