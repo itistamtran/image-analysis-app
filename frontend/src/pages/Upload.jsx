@@ -54,7 +54,6 @@ export default function UploadPage() {
       setConfidence(conf);
 
       // Build absolute URLs
-      // Build absolute URLs safely
       const fullImageUrl = image_url?.startsWith('http')
         ? image_url
         : `${API_BASE}${image_url}`;
@@ -95,6 +94,12 @@ export default function UploadPage() {
 
     } catch (err) {
       console.error(err);
+
+      if (err.response?.status === 503 && err.response?.data?.status === "waking_up") {
+        setError("ᶻ𝗓𐰁 The server just woke up — please reload the page.");
+        return;
+      }
+      
       let msg = err.response?.data
         ? JSON.stringify(err.response.data, null, 2)
         : err.message || JSON.stringify(err, null, 2);

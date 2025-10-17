@@ -17,6 +17,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from datetime import datetime
+# Record server start time
+import time
+start_time = time.time()
+
 from io import BytesIO
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -33,6 +37,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from flask import Flask, request, jsonify, Response, send_file
 from flask_cors import CORS
+
 
 
 # Create Flask app
@@ -213,6 +218,13 @@ def test_cors():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    uptime = time.time() - start_time
+
+    # If the app just woke up, send a friendly message
+    if uptime < 60:
+        print(f"[Wake check] Uptime: {uptime:.2f} seconds")
+        return jsonify({"status": "waking_up", "message": "ᶻ𝗓𐰁 The server just woke up — please reload the page."}), 503
+
     try:
         # --- Validate image file ---
         if 'image' not in request.files:
