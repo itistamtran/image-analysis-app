@@ -48,13 +48,3 @@
   color: #888;
 }
 
-.grecaptcha-badge {
-  z-index: 1000;
-  bottom: 16px !important;
-  left: 16px !important;
-  right: auto !important;
-}
-
-footer {
-  padding-bottom: 60px;
-}
