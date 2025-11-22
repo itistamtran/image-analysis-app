@@ -1,20 +1,21 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Upload from './pages/Upload';
-import Result from './pages/Result';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import Upload from "./pages/Upload";
+import Result from "./pages/Result";
 import Login from "./pages/Login";
+import Logout from "./pages/Logout";
 import Signup from "./pages/Signup";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import PendingVerification from "./pages/PendingVerification";
 import Unauthorized from "./pages/Unauthorized";
-import ForgotPassword from './pages/ForgotPassword';
+import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifiedPage from "./pages/VerifiedPage";
-
-import CustomCursor from './components/CustomCursor';
+import ScanDetailPage from "./pages/ScanDetailPage";
+import CustomCursor from "./components/CustomCursor";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/logout" element={<Logout />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/pending-verification" element={<PendingVerification />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
@@ -34,6 +36,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/verify/:token" element={<VerifiedPage />} />
+        <Route path="/scan/:scanId" element={<ScanDetailPage />} />
 
         {/* Dashboards */}
         <Route
@@ -52,7 +55,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
       </Routes>
     </Router>
   );
