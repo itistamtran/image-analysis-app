@@ -1,4 +1,9 @@
 # Load environment variables early
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from utils.db import get_db_connection
+
 from flask_cors import CORS
 from flask import Flask, request, jsonify, Response, send_file
 from werkzeug.utils import secure_filename
@@ -30,13 +35,12 @@ import psycopg2
 import uuid
 from firebase_admin import storage, credentials, auth as firebase_auth
 import firebase_admin
-import os
-from dotenv import load_dotenv
-load_dotenv()
+from routes.doctor_patients import doctor_bp
+from routes.patients import patient_bp
+
 
 # Record server start time
 start_time = time.time()
-
 
 # Create Flask app
 app = Flask(
@@ -44,6 +48,11 @@ app = Flask(
     static_folder="static",        # relative to backend/
     static_url_path="/static"      # URL path prefix
 )
+
+# Register Blueprints
+app.register_blueprint(doctor_bp, url_prefix="/doctors")
+app.register_blueprint(patient_bp)
+
 
 # CORS setup
 ALLOWED_ORIGINS = [
@@ -85,24 +94,6 @@ if not DATABASE_URL:
 engine = init_engine(DATABASE_URL)
 Base.metadata.bind = engine
 print("✅ Database connected successfully.")
-
-
-# Helper to get raw connection
-def get_db_connection():
-    dsn = os.getenv("NEON_DATABASE_URL")
-    if not dsn:
-        raise ValueError(
-            "NEON_DATABASE_URL is not set. Check .env file.")
-
-    # Sanitize in case of old prefix
-    if dsn.startswith("postgresql+psycopg2://"):
-        dsn = dsn.replace("postgresql+psycopg2://", "postgresql://", 1)
-        print("Fixed DSN prefix automatically")
-
-    print("Using DSN:", dsn)  # Debug print
-    conn = psycopg2.connect(dsn)
-    return conn
-
 
 # Path: backend/static/uploads/mri
 UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")

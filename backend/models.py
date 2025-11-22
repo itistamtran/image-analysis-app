@@ -87,6 +87,8 @@ class Prediction(Base):
     user = relationship("User", back_populates="predictions")
 
     reports = relationship("Report", back_populates="prediction")
+    patient_scans = relationship("PatientScan", back_populates="prediction")
+
 
 
 class Report(Base):
@@ -118,3 +120,43 @@ class Log(Base):
 
     user_id = Column(UUID(as_uuid=True), ForeignKey("User.id"))
     user = relationship("User", back_populates="logs")
+
+class Patient(Base):
+    __tablename__ = "patients"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    doctor_id = Column(UUID(as_uuid=True), ForeignKey("User.id"), nullable=False)
+
+    # Optional link to actual user account
+    linked_user_id = Column(UUID(as_uuid=True), ForeignKey("User.id"), nullable=True)
+
+    patient_name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    age = Column(Integer, nullable=True)
+    gender = Column(String, nullable=True) # for now keep simple
+    medical_history = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    scans = relationship("PatientScan", back_populates="patient")
+
+
+
+class PatientScan(Base):
+    __tablename__ = "PatientScan"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Link to patient
+    patient_id = Column(UUID(as_uuid=True), ForeignKey("Patients.id"), nullable=False)
+
+    # Link to prediction
+    prediction_id = Column(UUID(as_uuid=True), ForeignKey("Prediction.id"), nullable=False)
+
+    # Timestamp
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    patient = relationship("Patients", back_populates="scans")
+    prediction = relationship("Prediction", back_populates="patient_scans")

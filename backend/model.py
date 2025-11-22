@@ -14,6 +14,7 @@ import firebase_admin
 from firebase_admin import storage, credentials
 import json
 from huggingface_hub import login
+import uuid
 
 # Login to Hugging Face using token
 login(os.getenv("HUGGINGFACE_TOKEN"))
@@ -87,6 +88,64 @@ def predict_image(file_bytes, debug=False):
         if debug:
             print("Prediction failed:", e)
         return 'Error', None, None
+
+
+def predict_image_with_heatmap(file_bytes, debug=False):
+    import io
+    from PIL import Image
+    import torch
+    import uuid
+
+    try:
+        # Convert bytes to PIL image
+        image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+
+        # Save a temporary file because GradCAM expects a file path
+        temp_filename = f"{uuid.uuid4().hex}_temp.png"
+        temp_path = os.path.join(os.getcwd(), "static", "uploads", "mri", temp_filename)
+        image.save(temp_path)
+
+        # Run prediction
+        inputs = processor(images=image, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            probs = torch.nn.functional.softmax(outputs.logits, dim=-1).cpu().numpy()[0]
+
+        predicted_idx = probs.argmax()
+        confidence = float(probs[predicted_idx])
+        predicted_class = CLASS_NAMES[predicted_idx]
+
+        # If model not confident enough return no heatmap
+        if confidence < 0.6:
+            print("⚠ Low confidence, skipping heatmap")
+            return predicted_class, confidence, None
+
+        # ---- Generate Heatmap ----
+        heatmap_path = generate_vit_gradcam(
+            model,
+            temp_path,        # NOTE: using file path, not PIL
+            processor,
+            device
+        )
+
+        # Load heatmap output into PIL object
+        heatmap_img = Image.open(heatmap_path).convert("RGB")
+
+        print("🔥 Heatmap generated successfully")
+
+        # Optionally delete temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+
+        return predicted_class, confidence, heatmap_img
+
+    except Exception as e:
+        print("❌ Heatmap generation failed:", e)
+        return predicted_class, confidence, None
+
 
 
 # ---------- helpers function to generate grad cam heatmap ----------

@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -38,6 +37,12 @@ model User {
   predictions Prediction[]
   reports     Report[]     @relation("DoctorReports")
   Log         Log[]
+
+  // Doctor can have many patients
+  doctorPatients Patient[] @relation("DoctorPatients")
+
+  // Patient user may be linked to one Patient profile
+  patientAccount Patient[] @relation("PatientAccount")
 
   @@index([role])
   @@index([verificationStatus])
@@ -81,3 +86,22 @@ model Log {
   userId String?
   user   User?   @relation(fields: [userId], references: [id])
 }
+
+model Patient {
+  id              Int      @id @default(autoincrement())
+  patient_name    String
+  email           String
+  age             Int?
+  gender          String?
+  medical_history String?
+
+  doctor_id       String?
+  linked_user_id  String?
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  doctor      User? @relation("DoctorPatients", fields: [doctor_id], references: [id])
+  linkedUser  User? @relation("PatientAccount", fields: [linked_user_id], references: [id])
+}
+
