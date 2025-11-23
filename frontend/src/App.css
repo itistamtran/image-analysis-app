@@ -50,5 +50,9 @@
 
 body,
 #root {
-  color: white;
+  color: #ffffff !important;
+}
+
+.MuiTableCell-root {
+  color: #ffffff !important;
 }

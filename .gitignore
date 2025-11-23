@@ -63,3 +63,4 @@ serviceAccountKey.json
 # === macOS metadata ===
 
 *.swp
+.vercel

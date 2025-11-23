@@ -50,6 +50,9 @@ app = Flask(
 )
 
 # Apply proxy fix
+app.config['APPLICATION_ROOT'] = '/'
+app.config['PREFERRED_URL_SCHEME'] = 'https'
+app.config['TRUST_PROXY_HEADERS'] = True
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
 # CORS setup
@@ -61,7 +64,7 @@ ALLOWED_ORIGINS = [
     "https://medscanai.vercel.app",
     "https://medscanai.vercel.app/",
     "https://www.medscanai.net",
-    "https://www.medscanai.net/",
+    "https://medscanai.net",
     "https://medscanai.up.railway.app",
     "https://medscanai.up.railway.app/"
 ]
@@ -88,6 +91,17 @@ def handle_preflight():
             resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             resp.headers["Access-Control-Allow-Credentials"] = "true"
         return resp
+
+@app.route("/patients/<path:path>", methods=["OPTIONS"])
+def patients_options(path):
+    resp = app.make_response("")
+    origin = request.headers.get("Origin")
+    if origin in ALLOWED_ORIGINS:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Access-Control-Allow-Headers"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    return resp
 
 @app.after_request
 def add_cors_headers(resp):

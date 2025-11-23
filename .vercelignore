@@ -1,0 +1,36 @@
+# Models and training data
+
+_.h5
+_.pth
+_.pkl
+_.onnx
+\*.pb
+models/
+training_data/
+
+# Large media files
+
+_.mp4
+_.mov
+\*.avi
+
+# Development files
+
+node_modules/
+.next/
+.git/
+venv/
+**pycache**/
+\*.pyc
+.DS_Store
+
+# Backend
+
+backend/
+
+# Environment files
+
+.env.local
+.env
+.env.development
+.env.production

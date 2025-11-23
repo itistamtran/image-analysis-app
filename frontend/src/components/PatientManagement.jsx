@@ -238,7 +238,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
   };
 
   return (
-    <Box>
+    <Box sx={{ color: "#ffffff" }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -268,7 +268,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
           sx={{
             fontFamily: "Neue Machina, sans-serif",
             letterSpacing: "0.1em",
-            color: "white !important",
+            color: "#ffffff !important",
           }}
         >
           Patient Cases
@@ -311,20 +311,12 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
         <TableContainer
           component={Paper}
           sx={{
-            backgroundColor: "rgba(255,255,255,0.05)",
-            color: "white",
+            backgroundColor: "rgba(255,255,255,0.1)",
             "& .MuiTableCell-root": {
               fontFamily: "Neue Machina, sans-serif",
               letterSpacing: "0.1em",
-              color: "white !important",
+              color: "#ffffff !important",
               borderBottom: "1px solid rgba(255,255,255,0.1)",
-            },
-            "& .MuiTableCell-head": {
-              color: "white !important",
-              fontWeight: "bold",
-            },
-            "& .MuiTableCell-body": {
-              color: "white !important",
             },
           }}
         >

@@ -1,8 +1,15 @@
-@import './assets/fonts.css';
+@import "./assets/fonts.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body,
+  #root {
+    color: #ffffff;
+  }
+}
 
 * {
   cursor: none !important;
