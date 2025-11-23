@@ -19,6 +19,13 @@ COPY . /app
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
+RUN python3 <<EOF
+from transformers import AutoModelForImageClassification, AutoImageProcessor
+model_name = "itistamtran/vit_brain_tumor_best_model"
+AutoModelForImageClassification.from_pretrained(model_name)
+AutoImageProcessor.from_pretrained(model_name)
+EOF
+
 EXPOSE 8080
 ENV PORT=8080
 

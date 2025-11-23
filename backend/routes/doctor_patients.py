@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
+from flask_cors import CORS
 from utils.db import get_db_connection
 
 doctor_bp = Blueprint("doctor", __name__)
+CORS(doctor_bp, supports_credentials=True)
 
 # GET doctor info
 @doctor_bp.route("/<doctor_id>", methods=["GET"])

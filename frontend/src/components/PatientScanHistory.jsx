@@ -42,7 +42,10 @@ export default function PatientScanHistory({ doctorId, patients }) {
     try {
       console.log(`✓ Fetching scans for patient: ${selectedPatient}`);
       const res = await axios.get(
-        `${API_BASE}/patients/${selectedPatient}/scans`
+        `${API_BASE}/patients/${selectedPatient}/scans`,
+        {
+          withCredentials: true,
+        }
       );
       console.log("✓ Fetched scans:", res.data);
       setScans(res.data || []);
@@ -92,6 +95,7 @@ export default function PatientScanHistory({ doctorId, patients }) {
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
         }
       );
 

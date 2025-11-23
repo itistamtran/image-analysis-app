@@ -225,7 +225,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
     "& .MuiInputLabel-root.Mui-focused": { color: "white" },
 
     "& .MuiOutlinedInput-root": {
-      "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
+      "& fieldset": { borderColor: "rgba(255,255,255,0.5)" },
       "&:hover fieldset": { borderColor: "white" },
       "&.Mui-focused fieldset": { borderColor: "#5de0e6" },
     },
@@ -238,7 +238,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
   };
 
   return (
-    <Box sx={{ color: "#ffffff" }}>
+    <Box sx={{ color: "#ffffff !important" }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

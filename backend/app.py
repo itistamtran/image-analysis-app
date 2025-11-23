@@ -38,6 +38,7 @@ import firebase_admin
 from routes.doctor_patients import doctor_bp
 from routes.patients import patient_bp
 from werkzeug.middleware.proxy_fix import ProxyFix
+import re
 
 # Record server start time
 start_time = time.time()
@@ -62,11 +63,9 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
-    "https://medscanai.vercel.app/",
     "https://www.medscanai.net",
     "https://medscanai.net",
     "https://medscanai.up.railway.app",
-    "https://medscanai.up.railway.app/"
 ]
 CORS(
     app,
@@ -80,35 +79,19 @@ CORS(
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
 app.register_blueprint(patient_bp)
 
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        resp = app.make_response("")
-        origin = request.headers.get("Origin", "")
-        if origin in ALLOWED_ORIGINS:
-            resp.headers["Access-Control-Allow-Origin"] = origin
-            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            resp.headers["Access-Control-Allow-Credentials"] = "true"
-        return resp
-
-@app.route("/patients/<path:path>", methods=["OPTIONS"])
-def patients_options(path):
-    resp = app.make_response("")
-    origin = request.headers.get("Origin")
-    if origin in ALLOWED_ORIGINS:
-        resp.headers["Access-Control-Allow-Origin"] = origin
-        resp.headers["Access-Control-Allow-Credentials"] = "true"
-        resp.headers["Access-Control-Allow-Headers"] = "*"
-        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    return resp
-
 @app.after_request
 def add_cors_headers(resp):
     origin = request.headers.get("Origin", "")
-    if origin in ALLOWED_ORIGINS:
+    if (
+        re.match(r"https://(.*\.)?medscanai\.net", origin)
+        or "localhost" in origin
+        or "127.0.0.1" in origin
+        or "railway.app" in origin
+    ):
         resp.headers["Access-Control-Allow-Origin"] = origin
         resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return resp
 
 

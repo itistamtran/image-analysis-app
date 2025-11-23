@@ -24,9 +24,9 @@ model_name = "itistamtran/vit_brain_tumor_best_model"
 try:
     print(f"Downloading model from Hugging Face: {model_name}")
     model = AutoModelForImageClassification.from_pretrained(
-        model_name, use_auth_token=True)
+        model_name, local_files_only=True)
     processor = AutoImageProcessor.from_pretrained(
-        model_name, use_auth_token=True)
+        model_name, local_files_only=True)
     print("✅ Model loaded successfully from Hugging Face.")
 
 except Exception as e:
