@@ -71,26 +71,35 @@ CORS(
     app,
     resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
+    expose_headers=["Content-Type"]
 )
 
 # Register Blueprints
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
 app.register_blueprint(patient_bp)
 
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            response = app.make_response("")
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            response.headers["Access-Control-Max-Age"] = "3600"
+            return response
+
 @app.after_request
 def add_cors_headers(resp):
     origin = request.headers.get("Origin", "")
-    if (
-        re.match(r"https://(.*\.)?medscanai\.net", origin)
-        or "localhost" in origin
-        or "127.0.0.1" in origin
-        or "railway.app" in origin
-    ):
+    if origin in ALLOWED_ORIGINS:
         resp.headers["Access-Control-Allow-Origin"] = origin
         resp.headers["Access-Control-Allow-Credentials"] = "true"
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
         resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return resp
 
