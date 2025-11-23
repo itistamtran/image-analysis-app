@@ -3,11 +3,15 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies (added git here)
+# Install system dependencies - ADD MORE OPENCV DEPENDENCIES
 RUN apt-get update && apt-get install -y \
     git \
-    libgl1 \
+    libgl1-mesa-glx \
     libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
     build-essential \
     python3-dev \
  && rm -rf /var/lib/apt/lists/*
@@ -15,16 +19,13 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 COPY . /app
 
-# Upgrade pip and install dependencies
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# AUTHENTICATE WITH HUGGINGFACE 
 ARG HUGGINGFACE_TOKEN
 ENV HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
 RUN huggingface-cli login --token $HUGGINGFACE_TOKEN
 
-# DOWNLOAD MODEL DURING BUILD
 RUN python3 <<EOF
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 model_name = "itistamtran/vit_brain_tumor_best_model"
