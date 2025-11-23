@@ -35,4 +35,4 @@ EOF
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app", "--timeout", "300", "--workers", "1", "--threads", "2", "--worker-class", "gthread", "--graceful-timeout", "300", "--keep-alive", "5"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app", "--timeout", "600", "--workers", "1", "--threads", "2", "--worker-class", "gthread"]
