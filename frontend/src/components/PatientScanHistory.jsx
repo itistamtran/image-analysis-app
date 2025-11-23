@@ -239,7 +239,7 @@ export default function PatientScanHistory({ doctorId, patients }) {
       {/* Table */}
       {scans.length === 0 ? (
         <Typography
-          sx={{ color: "gray", fontFamily: "Neue Machina, sans-serif" }}
+          sx={{ color: "white", fontFamily: "Neue Machina, sans-serif" }}
         >
           {selectedPatient
             ? "No scans uploaded yet for this patient"

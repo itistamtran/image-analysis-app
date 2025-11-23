@@ -218,21 +218,28 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
 
   const textFieldStyle = {
     "& .MuiInputLabel-root": {
-      color: "gray",
-      fontFamily: "Neue Machina, sans-serif",
-      letterSpacing: "0.1em",
-    },
-    "& .MuiInputLabel-root.Mui-focused": { color: "white" },
-    "& .MuiOutlinedInput-root": {
-      "& fieldset": { borderColor: "gray" },
-      "&:hover fieldset": { borderColor: "white" },
-      "&.Mui-focused fieldset": { borderColor: "primary.main" },
-    },
-    input: {
       color: "white",
       fontFamily: "Neue Machina, sans-serif",
       letterSpacing: "0.1em",
     },
+    "& .MuiInputLabel-root.Mui-focused": { color: "white" },
+
+    "& .MuiOutlinedInput-root": {
+      "& fieldset": { borderColor: "rgba(255,255,255,0.3)" },
+      "&:hover fieldset": { borderColor: "white" },
+      "&.Mui-focused fieldset": { borderColor: "#5de0e6" },
+    },
+
+    "& input": {
+      color: "white",
+      fontFamily: "Neue Machina, sans-serif",
+      letterSpacing: "0.1em",
+      "::placeholder": {
+        color: "white",
+        opacity: 1,
+      },
+    },
+
     "& .MuiSelect-select": {
       color: "white",
       fontFamily: "Neue Machina, sans-serif",
@@ -258,12 +265,20 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
       </Snackbar>
 
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          mb: 3,
+          color: "white !important",
+        }}
+      >
         <Typography
           variant="h5"
           sx={{
             fontFamily: "Neue Machina, sans-serif",
             letterSpacing: "0.1em",
+            color: "white !important",
           }}
         >
           Patient Cases
@@ -274,7 +289,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
           onClick={() => setOpenDialog(true)}
           sx={{
             background: "linear-gradient(to right, #5de0e6, #004aad)",
-            fontFamily: "Neue Machina, sans-serif",
+            fontFamily: "Neue Machina bold, sans-serif",
             letterSpacing: "0.1em",
           }}
         >
@@ -297,7 +312,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
           sx={{
             fontFamily: "Neue Machina, sans-serif",
             letterSpacing: "0.1em",
-            color: "gray",
+            color: "white",
           }}
         >
           No patient cases assigned yet.
@@ -342,7 +357,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
                           size="small"
                           sx={{
                             backgroundColor: "rgba(93, 224, 230, 0.2)",
-                            color: "#5de0e6",
+                            color: "#ffffff",
                             fontFamily: "Neue Machina, sans-serif",
                           }}
                         />

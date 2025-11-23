@@ -37,7 +37,7 @@ from firebase_admin import storage, credentials, auth as firebase_auth
 import firebase_admin
 from routes.doctor_patients import doctor_bp
 from routes.patients import patient_bp
-
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Record server start time
 start_time = time.time()
@@ -53,6 +53,8 @@ app = Flask(
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
 app.register_blueprint(patient_bp)
 
+# Apply proxy fix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
 # CORS setup
 ALLOWED_ORIGINS = [
@@ -61,8 +63,11 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
+    "https://medscanai.vercel.app/",
     "https://www.medscanai.net",
+    "https://www.medscanai.net/",
     "https://medscanai.up.railway.app",
+    "https://medscanai.up.railway.app/"
 ]
 CORS(
     app,
@@ -73,15 +78,16 @@ CORS(
 )
 
 
-@app.after_request
-def add_cors_headers(resp):
+@app.route("/", methods=["OPTIONS"], defaults={"path": ""})
+@app.route("/<path:path>", methods=["OPTIONS"])
+def handle_options(path):
+    resp = app.make_response("")
     origin = request.headers.get("Origin", "")
     if origin in ALLOWED_ORIGINS:
         resp.headers["Access-Control-Allow-Origin"] = origin
-        resp.headers["Vary"] = "Origin"
-        resp.headers["Access-Control-Allow-Credentials"] = "true"
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        resp.headers["Access-Control-Allow-Methods"] = "GET,PUT,POST,DELETE,OPTIONS"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
     return resp
 
 

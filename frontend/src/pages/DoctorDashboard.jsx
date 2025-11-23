@@ -131,6 +131,7 @@ export default function DoctorDashboard() {
           mb: 4,
           fontFamily: "Neue Machina, sans-serif",
           letterSpacing: "0.1em",
+          color: "#ffffff",
         }}
       >
         Patient Management Section
