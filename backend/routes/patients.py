@@ -9,7 +9,6 @@ from utils.db import get_db_connection
 from model import predict_image_with_heatmap, model, processor, device, generate_vit_gradcam
 
 patient_bp = Blueprint("patient", __name__)
-CORS(patient_bp, supports_credentials=True)
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads", "mri")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
