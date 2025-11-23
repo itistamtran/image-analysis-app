@@ -3,10 +3,10 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies - ADD MORE OPENCV DEPENDENCIES
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -21,17 +21,6 @@ COPY . /app
 
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
-
-ARG HUGGINGFACE_TOKEN
-ENV HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
-RUN huggingface-cli login --token $HUGGINGFACE_TOKEN
-
-RUN python3 <<EOF
-from transformers import AutoModelForImageClassification, AutoImageProcessor
-model_name = "itistamtran/vit_brain_tumor_best_model"
-AutoModelForImageClassification.from_pretrained(model_name)
-AutoImageProcessor.from_pretrained(model_name)
-EOF
 
 EXPOSE 8080
 ENV PORT=8080
