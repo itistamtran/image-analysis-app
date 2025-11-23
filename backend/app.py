@@ -63,13 +63,28 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
-    "https://www.medscanai.net",
-    "https://medscanai.net",
+    "https://www.medscanai.net",     
+    "https://medscanai.net",          
     "https://medscanai.up.railway.app",
 ]
+
+def is_allowed_origin(origin):
+    if not origin:
+        return False
+    # Allow exact matches
+    if origin in ALLOWED_ORIGINS:
+        return True
+    # Allow any Vercel preview URLs
+    if '.vercel.app' in origin:
+        return True
+    # Allow both www and non-www versions of medscanai.net
+    if 'medscanai.net' in origin:
+        return True
+    return False
+
 CORS(
     app,
-    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
+    resources={r"/*": {"origins": is_allowed_origin}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
