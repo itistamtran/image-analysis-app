@@ -19,6 +19,12 @@ COPY . /app
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
+# AUTHENTICATE WITH HUGGINGFACE 
+ARG HUGGINGFACE_TOKEN
+ENV HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
+RUN huggingface-cli login --token $HUGGINGFACE_TOKEN
+
+# DOWNLOAD MODEL DURING BUILD
 RUN python3 <<EOF
 from transformers import AutoModelForImageClassification, AutoImageProcessor
 model_name = "itistamtran/vit_brain_tumor_best_model"
