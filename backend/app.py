@@ -82,9 +82,16 @@ app.register_blueprint(patient_bp)
 @app.after_request
 def add_cors_headers(resp):
     origin = request.headers.get("Origin", "")
-    if origin in ALLOWED_ORIGINS:
+    if (
+        re.match(r"https://(.*\.)?medscanai\.net", origin)
+        or "localhost" in origin
+        or "127.0.0.1" in origin
+        or "railway.app" in origin
+    ):
         resp.headers["Access-Control-Allow-Origin"] = origin
         resp.headers["Access-Control-Allow-Credentials"] = "true"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     return resp
 
 
