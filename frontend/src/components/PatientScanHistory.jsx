@@ -124,7 +124,7 @@ export default function PatientScanHistory({ doctorId, patients }) {
   };
 
   return (
-    <Box sx={{ mt: 6 }}>
+    <Box sx={{ mt: 6, position: "relative", color: "white" }}>
       <Typography
         variant="h5"
         sx={{
@@ -178,7 +178,7 @@ export default function PatientScanHistory({ doctorId, patients }) {
               background: "linear-gradient(to right, #5de0e6, #004aad)",
               opacity: !selectedPatient || uploading ? 0.3 : 1,
               cursor: !selectedPatient || uploading ? "not-allowed" : "pointer",
-              fontFamily: "Neue Machina, sans-serif",
+              fontFamily: "Neue Machina bold, sans-serif",
               letterSpacing: "0.1em",
             }}
           >
@@ -202,7 +202,7 @@ export default function PatientScanHistory({ doctorId, patients }) {
               opacity: !file || !selectedPatient || uploading ? 0.3 : 1,
               pointerEvents:
                 !file || !selectedPatient || uploading ? "none" : "auto",
-              fontFamily: "Neue Machina, sans-serif",
+              fontFamily: "Neue Machina bold, sans-serif",
               letterSpacing: "0.1em",
             }}
           >

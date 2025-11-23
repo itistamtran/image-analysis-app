@@ -225,7 +225,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
     "& .MuiInputLabel-root.Mui-focused": { color: "white" },
 
     "& .MuiOutlinedInput-root": {
-      "& fieldset": { borderColor: "rgba(255,255,255,0.5)" },
+      "& fieldset": { borderColor: "rgba(255,255,255,0.2)" },
       "&:hover fieldset": { borderColor: "white" },
       "&.Mui-focused fieldset": { borderColor: "#5de0e6" },
     },
@@ -238,7 +238,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
   };
 
   return (
-    <Box sx={{ color: "#ffffff !important" }}>
+    <Box sx={{ position: "relative", color: "white" }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -255,6 +255,18 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
       </Snackbar>
 
       {/* Header */}
+      <Typography
+        variant="h5"
+        sx={{
+          mt: 2,
+          mb: 4,
+          fontFamily: "Neue Machina, sans-serif",
+          letterSpacing: "0.1em",
+          color: "#ffffff !important",
+        }}
+      >
+        Patient Management Section
+      </Typography>
       <Box
         sx={{
           display: "flex",
@@ -264,7 +276,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
         }}
       >
         <Typography
-          variant="h5"
+          variant="h6"
           sx={{
             fontFamily: "Neue Machina, sans-serif",
             letterSpacing: "0.1em",
@@ -311,7 +323,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
         <TableContainer
           component={Paper}
           sx={{
-            backgroundColor: "rgba(255,255,255,0.1)",
+            backgroundColor: "rgba(255,255,255,0.05)",
             "& .MuiTableCell-root": {
               fontFamily: "Neue Machina, sans-serif",
               letterSpacing: "0.1em",

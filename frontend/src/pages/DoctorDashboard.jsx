@@ -127,19 +127,6 @@ export default function DoctorDashboard() {
       />
 
       {/* Patient Management Section */}
-      <Typography
-        variant="h5"
-        sx={{
-          mt: 2,
-          mb: 4,
-          fontFamily: "Neue Machina, sans-serif",
-          letterSpacing: "0.1em",
-          color: "#ffffff",
-        }}
-      >
-        Patient Management Section
-      </Typography>
-
       <section>
         {user?.id && user?.role === "DOCTOR" && (
           <PatientManagement
