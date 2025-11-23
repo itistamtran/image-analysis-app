@@ -17,16 +17,17 @@ from huggingface_hub import login
 import uuid
 
 # Login to Hugging Face using token
-login(os.getenv("HUGGINGFACE_TOKEN"))
-
 model_name = "itistamtran/vit_brain_tumor_best_model"
+hf_token = os.getenv("HUGGINGFACE_TOKEN")
+
+print(f"Downloading model from Hugging Face: {model_name}")
 
 try:
     print(f"Downloading model from Hugging Face: {model_name}")
     model = AutoModelForImageClassification.from_pretrained(
-        model_name, local_files_only=True)
+        model_name, token=hf_token)
     processor = AutoImageProcessor.from_pretrained(
-        model_name, local_files_only=True)
+        model_name, token=hf_token)
     print("✅ Model loaded successfully from Hugging Face.")
 
 except Exception as e:
