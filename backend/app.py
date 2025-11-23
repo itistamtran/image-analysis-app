@@ -63,28 +63,13 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
     "https://medscanai.vercel.app",
-    "https://www.medscanai.net",     
-    "https://medscanai.net",          
+    "https://www.medscanai.net",
+    "https://medscanai.net",
     "https://medscanai.up.railway.app",
 ]
-
-def is_allowed_origin(origin):
-    if not origin:
-        return False
-    # Allow exact matches
-    if origin in ALLOWED_ORIGINS:
-        return True
-    # Allow any Vercel preview URLs
-    if '.vercel.app' in origin:
-        return True
-    # Allow both www and non-www versions of medscanai.net
-    if 'medscanai.net' in origin:
-        return True
-    return False
-
 CORS(
     app,
-    resources={r"/*": {"origins": is_allowed_origin}},
+    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
@@ -94,20 +79,13 @@ CORS(
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
 app.register_blueprint(patient_bp)
 
-#@app.after_request
-#def add_cors_headers(resp):
-   # origin = request.headers.get("Origin", "")
-    #if (
-     #   re.match(r"https://(.*\.)?medscanai\.net", origin)
-     #   or "localhost" in origin
-     #   or "127.0.0.1" in origin
-     #   or "railway.app" in origin
-    #):
-    #    resp.headers["Access-Control-Allow-Origin"] = origin
-    #    resp.headers["Access-Control-Allow-Credentials"] = "true"
-    #    resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-    #    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-   # return resp
+@app.after_request
+def add_cors_headers(resp):
+    origin = request.headers.get("Origin", "")
+    if origin in ALLOWED_ORIGINS:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Access-Control-Allow-Credentials"] = "true"
+    return resp
 
 
 # Database connection setup
