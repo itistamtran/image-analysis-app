@@ -47,3 +47,8 @@
 .read-the-docs {
   color: #e0e0e0;
 }
+
+body,
+#root {
+  color: white;
+}

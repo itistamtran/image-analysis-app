@@ -230,17 +230,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
       "&.Mui-focused fieldset": { borderColor: "#5de0e6" },
     },
 
-    "& input": {
-      color: "white",
-      fontFamily: "Neue Machina, sans-serif",
-      letterSpacing: "0.1em",
-      "::placeholder": {
-        color: "white",
-        opacity: 1,
-      },
-    },
-
-    "& .MuiSelect-select": {
+    "& .MuiInputBase-input": {
       color: "white",
       fontFamily: "Neue Machina, sans-serif",
       letterSpacing: "0.1em",
@@ -322,11 +312,19 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
           component={Paper}
           sx={{
             backgroundColor: "rgba(255,255,255,0.05)",
+            color: "white",
             "& .MuiTableCell-root": {
               fontFamily: "Neue Machina, sans-serif",
               letterSpacing: "0.1em",
-              color: "white",
+              color: "white !important",
               borderBottom: "1px solid rgba(255,255,255,0.1)",
+            },
+            "& .MuiTableCell-head": {
+              color: "white !important",
+              fontWeight: "bold",
+            },
+            "& .MuiTableCell-body": {
+              color: "white !important",
             },
           }}
         >
@@ -369,7 +367,7 @@ export default function PatientManagement({ doctorId, patients, setPatients }) {
                         <Box sx={{ display: "flex", alignItems: "center" }}>
                           <Typography
                             sx={{
-                              color: "rgba(255,255,255,0.7)",
+                              color: "white",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace:

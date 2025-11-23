@@ -45,13 +45,9 @@ start_time = time.time()
 # Create Flask app
 app = Flask(
     __name__,
-    static_folder="static",        # relative to backend/
-    static_url_path="/static"      # URL path prefix
+    static_folder="static", # relative to backend/
+    static_url_path="/static" # URL path prefix
 )
-
-# Register Blueprints
-app.register_blueprint(doctor_bp, url_prefix="/doctors")
-app.register_blueprint(patient_bp)
 
 # Apply proxy fix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
@@ -77,16 +73,27 @@ CORS(
     methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
 )
 
+# Register Blueprints
+app.register_blueprint(doctor_bp, url_prefix="/doctors")
+app.register_blueprint(patient_bp)
 
-@app.route("/", methods=["OPTIONS"], defaults={"path": ""})
-@app.route("/<path:path>", methods=["OPTIONS"])
-def handle_options(path):
-    resp = app.make_response("")
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        resp = app.make_response("")
+        origin = request.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            resp.headers["Access-Control-Allow-Origin"] = origin
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            resp.headers["Access-Control-Allow-Credentials"] = "true"
+        return resp
+
+@app.after_request
+def add_cors_headers(resp):
     origin = request.headers.get("Origin", "")
     if origin in ALLOWED_ORIGINS:
         resp.headers["Access-Control-Allow-Origin"] = origin
-        resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
         resp.headers["Access-Control-Allow-Credentials"] = "true"
     return resp
 

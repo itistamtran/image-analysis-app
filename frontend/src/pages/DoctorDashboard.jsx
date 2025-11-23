@@ -53,7 +53,10 @@ export default function DoctorDashboard() {
       className="relative flex flex-col min-h-screen px-16 mx-auto text-white bg-center bg-cover"
       style={{ backgroundImage: "url('/bg-gradient.jpg')" }}
     >
-      <div className="absolute inset-0 z-0 pointer-events-none bg-black/30" />
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
+      />
       <Header />
       <Typography
         variant="h4"
