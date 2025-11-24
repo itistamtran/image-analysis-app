@@ -148,11 +148,6 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     try:
         with torch.enable_grad():
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
-
-        # Normalize safely (no fallback trigger)
-        grayscale_cam = (grayscale_cam - grayscale_cam.min()) / (
-            grayscale_cam.max() - grayscale_cam.min() + 1e-8
-        )
             
     except Exception as e:
         print("[WARN] GradCAM failed, switching to EigenCAM:", e)
@@ -167,34 +162,16 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
 
     # --- IMPROVED NORMALIZATION AND SHARPENING ---
-    
-    # 1. Apply percentile-based normalization (removes outliers)
-    p_low, p_high = np.percentile(grayscale_cam, [5, 95])
-    grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
-    
-    # 2. Normalize to 0-1
-    cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
-    if cam_max - cam_min > 1e-8:
-        grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
-    
-    # 3. Apply power transform to enhance contrast (make it more focused)
-    # Higher gamma = more focused on high-activation areas
-    gamma = 2.0  # Increase for more focus (try 1.5-3.0)
-    grayscale_cam = np.power(grayscale_cam, gamma)
-    
-    # 4. Apply threshold to remove weak activations
-    threshold = 0.3  # Remove activations below 30%
-    grayscale_cam[grayscale_cam < threshold] = 0
-    
-    # 5. Re-normalize after thresholding
-    if grayscale_cam.max() > 0:
-        grayscale_cam = grayscale_cam / grayscale_cam.max()
-    
-    # Optional: Apply Gaussian blur for smoother appearance
+    cam = grayscale_cam
+    cam = cam - cam.min()
+    if cam.max() > 0:
+        cam = cam / cam.max()
+
+    # Slight smoothing only 
     from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=1.0)
-    
-    print(f"✅ CAM enhanced with gamma={gamma}, threshold={threshold}")
+    cam = gaussian_filter(cam, sigma=0.8)
+
+    grayscale_cam = cam
 
     # --- Resize back to original image size ---
     cam_resized = cv2.resize(
