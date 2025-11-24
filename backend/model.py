@@ -7,7 +7,6 @@ import os
 import numpy as np
 from pytorch_grad_cam import GradCAM, EigenCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.reshape_transforms import vit_reshape_transform
 import firebase_admin
 from firebase_admin import storage, credentials
 import json
@@ -93,6 +92,30 @@ class ViTWrapper(torch.nn.Module):
     def forward(self, x):
         out = self.vit_model(pixel_values=x)
         return out.logits if hasattr(out, "logits") else out
+
+
+def vit_reshape_transform(hidden_states):
+    # hidden_states shape: [B, N, C]
+    B, N, C = hidden_states.shape
+
+    # Remove CLS token
+    hidden_states = hidden_states[:, 1:, :]   # now [B, N-1, C]
+
+    # Compute grid size (patch layout)
+    grid_size = int((N - 1) ** 0.5)
+
+    # If it doesn't perfectly square, fall back safely
+    if grid_size * grid_size != (N - 1):
+        patch = 16
+        img_size = model.config.image_size
+        grid_size = img_size // patch
+
+    # Rearrange to [B, C, H, W]
+    hidden_states = hidden_states.permute(0, 2, 1)
+    hidden_states = hidden_states.reshape(B, C, grid_size, grid_size)
+
+    return hidden_states
+
 
 # ---------- main function generate grad cam heatmap ----------
 
@@ -245,9 +268,8 @@ def predict_image_with_heatmap(file_bytes, debug=False):
         step = time.time()
         inputs = processor(images=image, return_tensors="pt").to(device)
 
-        with torch.no_grad():
-            outputs = model(**inputs)
-            probs = torch.nn.functional.softmax(outputs.logits, dim=-1).cpu().numpy()[0]
+        outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1).cpu().numpy()[0]
 
         predicted_idx = probs.argmax()
         confidence = float(probs[predicted_idx])
