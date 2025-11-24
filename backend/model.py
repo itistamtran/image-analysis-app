@@ -69,9 +69,17 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    # Use the output of the last encoder block
+    """Get the best target layer for ViT GradCAM"""
+    # Use the last attention layer output
     last_block = hf_vit_model.vit.encoder.layer[-1]
-    return [last_block.output]
+    # Try these in order of preference
+    try:
+        return [last_block.attention.attention.dropout]
+    except:
+        try:
+            return [last_block.attention.output.dense]
+        except:
+            return [last_block.output]
 
 
 class ViTWrapper(torch.nn.Module):
@@ -145,68 +153,94 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     # Everything from here needs gradients, so force-enable them
     with torch.enable_grad():
-        # --- GradCAM setup ---
+        # --- Predict class first ---
         step = time.time()
-        cam = GradCAM(
-            model=wrapped,
-            target_layers=target_layers,
-            reshape_transform=vit_reshape_transform,
-        )
-
-        # --- Predict and select class (with grad) ---
         outputs = model(**{k: v.to(device) for k, v in inputs.items()})
         logits = outputs.logits if hasattr(outputs, "logits") else outputs
         pred_class = int(torch.argmax(logits, dim=-1).item())
         targets = [ClassifierOutputTarget(pred_class)]
         print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
 
-        # --- Compute GradCAM, fallback to EigenCAM if flat ---
+        # --- Try GradCAM first, then EigenCAM ---
         step = time.time()
+        grayscale_cam = None
+        
+        # Try GradCAM
         try:
-            grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
-            if grayscale_cam.std() < 1e-5:
-                raise ValueError("Flat CAM detected.")
-        except Exception as e:
-            print("[WARN] GradCAM failed, switching to EigenCAM:", e)
-            cam = EigenCAM(
+            cam = GradCAM(
                 model=wrapped,
                 target_layers=target_layers,
                 reshape_transform=vit_reshape_transform,
             )
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
+            
+            # Check if it's flat
+            if grayscale_cam.std() < 1e-5 or grayscale_cam.max() - grayscale_cam.min() < 0.01:
+                print("[WARN] GradCAM produced flat result")
+                grayscale_cam = None
+        except Exception as e:
+            print(f"[WARN] GradCAM failed: {e}")
+        
+        # If GradCAM failed, use EigenCAM
+        if grayscale_cam is None:
+            print("[INFO] Using EigenCAM instead")
+            try:
+                cam = EigenCAM(
+                    model=wrapped,
+                    target_layers=target_layers,
+                    reshape_transform=vit_reshape_transform,
+                )
+                grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
+            except Exception as e:
+                print(f"[ERROR] EigenCAM also failed: {e}")
+                # Create a simple gradient-based heatmap as last resort
+                img_tensor.retain_grad()
+                outputs = wrapped(img_tensor)
+                outputs[0, pred_class].backward()
+                grayscale_cam = img_tensor.grad[0].abs().mean(dim=0).cpu().numpy()
 
     print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
 
-    # --- IMPROVED NORMALIZATION AND ENHANCEMENT ---
+    # --- ADAPTIVE NORMALIZATION AND ENHANCEMENT ---
     
-    # 1. Remove outliers using percentile clipping
-    p_low, p_high = np.percentile(grayscale_cam, [2, 98])
+    # 1. Check the initial CAM quality
+    cam_std = grayscale_cam.std()
+    cam_range = grayscale_cam.max() - grayscale_cam.min()
+    print(f"📊 CAM stats: std={cam_std:.4f}, range={cam_range:.4f}")
+    
+    # 2. Remove outliers using percentile clipping
+    p_low, p_high = np.percentile(grayscale_cam, [1, 99])
     grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
     
-    # 2. Normalize to 0-1
+    # 3. Normalize to 0-1
     cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
     if cam_max - cam_min > 1e-8:
         grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
     else:
-        print("[WARN] CAM has no variation, using uniform heatmap")
+        print("[WARN] CAM has no variation")
         grayscale_cam = np.ones_like(grayscale_cam) * 0.5
     
-    # 3. Apply power transform (gamma correction) to enhance high activations
-    # Higher gamma = sharper focus on important regions
-    gamma = 2.5  
+    # 4. Apply adaptive gamma correction based on CAM quality
+    # Use lower gamma if CAM is already focused, higher if it's diffuse
+    if cam_std > 0.2:  # Good variation
+        gamma = 1.8
+        threshold = 0.15
+    else:  # Poor variation, need more enhancement
+        gamma = 2.2
+        threshold = 0.20
+    
     grayscale_cam = np.power(grayscale_cam, gamma)
     
-    # 4. Threshold to remove weak activations (noise reduction)
-    threshold = 0.25  # Remove activations below 25%
+    # 5. Apply threshold to remove weak activations
     grayscale_cam[grayscale_cam < threshold] = 0
     
-    # 5. Re-normalize after thresholding
+    # 6. Re-normalize after thresholding
     if grayscale_cam.max() > 0:
         grayscale_cam = grayscale_cam / grayscale_cam.max()
     
-    # 6. Apply slight Gaussian smoothing for natural appearance
+    # 7. Light Gaussian smoothing for natural appearance
     from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.8)
+    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.6)
     
     print(f"✅ CAM enhanced: gamma={gamma}, threshold={threshold}")
 
@@ -224,7 +258,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
-    # --- Blend (overlay) with adjusted weights ---
+    # --- Blend (overlay) ---
     overlay = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
 
     # --- Save results ---
