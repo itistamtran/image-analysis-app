@@ -70,29 +70,23 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    """
-    Target layer selection for HuggingFace ViT.
-    Grad-CAM needs a spatial tensor (tokens before flattening).
-    """
-    encoder = hf_vit_model.vit.encoder
+    enc = hf_vit_model.vit.encoder
+    last = enc.layer[-1]
 
-    last_block = encoder.layer[-1]
+    # 1. Prefer layernorm_after if it exists (common in HF ViT)
+    if hasattr(last, "layernorm_after"):
+        return [last.layernorm_after]
 
-    # 1. Best: LayerNorm after attention (still token-shaped)
-    if hasattr(last_block, "layernorm_after"):
-        return [last_block.layernorm_after]
+    # 2. Otherwise try output.layernorm
+    if hasattr(last, "output") and hasattr(last.output, "layernorm"):
+        return [last.output.layernorm]
 
-    # 2. Second best: output BEFORE classifier
-    if hasattr(last_block, "output"):
-        if hasattr(last_block.output, "dropout"):
-            return [last_block.output.dropout]
+    # 3. Fallback: output.dense (still token-shaped before pooling)
+    if hasattr(last, "output") and hasattr(last.output, "dense"):
+        return [last.output.dense]
 
-    # 3. Fallback: attention output
-    if hasattr(last_block, "attention"):
-        return [last_block.attention.output]
-
-    # 4. Final fallback
-    return [last_block]
+    # 4. Last fallback: the whole block
+    return [last]
 
 
 class ViTWrapper(torch.nn.Module):
@@ -164,10 +158,10 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         with torch.enable_grad():
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
 
-        # Check if CAM is too flat
-        cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
-        if cam_max - cam_min < 1e-5:
-            raise ValueError("Flat CAM detected")
+        # Normalize safely (no fallback trigger)
+        grayscale_cam = (grayscale_cam - grayscale_cam.min()) / (
+            grayscale_cam.max() - grayscale_cam.min() + 1e-8
+        )
             
     except Exception as e:
         print("[WARN] GradCAM failed, switching to EigenCAM:", e)
