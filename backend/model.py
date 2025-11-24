@@ -70,20 +70,29 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    # ViT last layer normalization
-    try:
-        return [hf_vit_model.vit.encoder.layer[-1].output.layernorm]
-    except:
-        pass
+    """
+    Target layer selection for HuggingFace ViT.
+    Grad-CAM needs a spatial tensor (tokens before flattening).
+    """
+    encoder = hf_vit_model.vit.encoder
 
-    # fallback: output module
-    try:
-        return [hf_vit_model.vit.encoder.layer[-1].output]
-    except:
-        pass
+    last_block = encoder.layer[-1]
 
-    # last fallback: full layer
-    return [hf_vit_model.vit.encoder.layer[-1]]
+    # 1. Best: LayerNorm after attention (still token-shaped)
+    if hasattr(last_block, "layernorm_after"):
+        return [last_block.layernorm_after]
+
+    # 2. Second best: output BEFORE classifier
+    if hasattr(last_block, "output"):
+        if hasattr(last_block.output, "dropout"):
+            return [last_block.output.dropout]
+
+    # 3. Fallback: attention output
+    if hasattr(last_block, "attention"):
+        return [last_block.attention.output]
+
+    # 4. Final fallback
+    return [last_block]
 
 
 class ViTWrapper(torch.nn.Module):
