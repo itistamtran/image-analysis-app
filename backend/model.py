@@ -222,8 +222,8 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     cam_range = grayscale_cam.max() - grayscale_cam.min()
     print(f"📊 CAM stats: std={cam_std:.4f}, range={cam_range:.4f}")
     
-    # Very light percentile clipping (keep more data)
-    p_low, p_high = np.percentile(grayscale_cam, [1, 99.5])
+    # Light percentile clipping
+    p_low, p_high = np.percentile(grayscale_cam, [1, 99])
     grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
     
     # Normalize
@@ -233,10 +233,9 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     else:
         grayscale_cam = np.ones_like(grayscale_cam) * 0.5
     
-    # More aggressive enhancement for EigenCAM results
-    # Lower gamma and threshold to keep more activation visible
-    gamma = 1.2  # Lower gamma = less aggressive
-    threshold = 0.05  # Lower threshold = keep more activations
+    # Slightly more focused enhancement
+    gamma = 1.5  # Increased from 1.2
+    threshold = 0.08  # Increased from 0.05
     
     print(f"🔧 Using gamma={gamma}, threshold={threshold}")
     
@@ -247,9 +246,9 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     if grayscale_cam.max() > 0:
         grayscale_cam = grayscale_cam / grayscale_cam.max()
     
-    # Very light smoothing
+    # Light smoothing
     from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.3)
+    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.4)
     
     print(f"✅ CAM enhanced: gamma={gamma}, threshold={threshold}")
 
@@ -265,50 +264,48 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    
-    # Stronger heatmap blend for better visibility
-    overlay = cv2.addWeighted(img_bgr, 0.5, heatmap_color, 0.5, 0)
+    overlay = cv2.addWeighted(img_bgr, 0.55, heatmap_color, 0.45, 0)
 
     # --- Save ---
     if save_path is None:
         root, _ = os.path.splitext(image_path)
-        save_path = f"{root}_vit_gradcam.jpg"
+        save_path = f"{root}_heatmap.jpg"
 
     cv2.imwrite(save_path, overlay, [cv2.IMWRITE_JPEG_QUALITY, 95])
     print(f"✅ CAM generation total: {time.time() - start:.2f}s (class={pred_class})")
 
-    # --- Upload to Firebase ---
+    # --- Firebase upload ---
     try:
         if not firebase_admin._apps:
             firebase_key_data = os.getenv("FIREBASE_SERVICE_ACCOUNT")
-            if not firebase_key_data:
-                raise ValueError("FIREBASE_SERVICE_ACCOUNT not set")
+            if firebase_key_data:
+                cred_dict = json.loads(firebase_key_data)
+                cred = credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred, {
+                    "storageBucket": "medscanai-tam.appspot.com"
+                })
 
-            cred_dict = json.loads(firebase_key_data)
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred, {
-                "storageBucket": "medscanai-tam.appspot.com"
-            })
+                bucket = storage.bucket()
+                filename = os.path.basename(save_path)
+                blob = bucket.blob(f"heatmaps/{filename}")
+                blob.upload_from_filename(save_path)
+                blob.make_public()
+                heatmap_url = blob.public_url
 
-        bucket = storage.bucket()
-        filename = os.path.basename(save_path)
-        blob = bucket.blob(f"heatmaps/{filename}")
-        blob.upload_from_filename(save_path)
-        blob.make_public()
-        heatmap_url = blob.public_url
+                print(f"✅ Uploaded heatmap to Firebase: {heatmap_url}")
 
-        print(f"✅ Uploaded heatmap to Firebase: {heatmap_url}")
+                try:
+                    os.remove(save_path)
+                except Exception:
+                    pass
 
-        try:
-            os.remove(save_path)
-        except Exception:
-            pass
-
-        return heatmap_url
-
+                return heatmap_url
     except Exception as e:
-        print(f"[WARN] Firebase upload failed: {e}")
-        return save_path
+        print(f"[INFO] Firebase upload skipped: {e}")
+
+    # Return local path if Firebase failed
+    print(f"✅ Grad-CAM done => {save_path}")
+    return save_path
 
 
 def predict_image_with_heatmap(file_bytes, debug=False):
