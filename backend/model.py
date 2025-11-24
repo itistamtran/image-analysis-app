@@ -70,19 +70,19 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    # Correct attention output layer for HF ViT models
+    # ViT last layer normalization
     try:
-        return [hf_vit_model.vit.encoder.layer[-1].attention.output.dense]
+        return [hf_vit_model.vit.encoder.layer[-1].output.layernorm]
     except:
         pass
 
-    # Fallback
+    # fallback: output module
     try:
-        return [hf_vit_model.vit.encoder.layer[-1].attention.output]
+        return [hf_vit_model.vit.encoder.layer[-1].output]
     except:
         pass
 
-    # Last fallback: final encoder layer
+    # last fallback: full layer
     return [hf_vit_model.vit.encoder.layer[-1]]
 
 
