@@ -68,13 +68,6 @@ def predict_image(file_bytes, debug=False):
 
 # ---------- helpers function to generate grad cam heatmap ----------
 
-def _get_vit_target_layers(hf_vit_model):
-    """Get the best target layer for ViT GradCAM"""
-    # Use the last encoder block's output
-    last_block = hf_vit_model.vit.encoder.layer[-1]
-    return [last_block.output]
-
-
 class ViTWrapper(torch.nn.Module):
     """
     Wraps a HF ViT so forward(x) returns logits tensor.
@@ -88,6 +81,22 @@ class ViTWrapper(torch.nn.Module):
     def forward(self, x):
         out = self.vit_model(pixel_values=x)
         return out.logits if hasattr(out, "logits") else out
+
+
+def _get_vit_target_layers(hf_vit_model):
+    """Get the best target layer for ViT GradCAM"""
+    # Use LayerNorm after the last attention block
+    # This tends to work better than the output layer
+    last_block = hf_vit_model.vit.encoder.layer[-1]
+    
+    # Try to get the layernorm after attention
+    try:
+        return [last_block.layernorm_after]
+    except:
+        try:
+            return [last_block.layernorm_before]
+        except:
+            return [last_block.output]
 
 
 def vit_reshape_transform(tensor_or_tuple):
@@ -105,7 +114,6 @@ def vit_reshape_transform(tensor_or_tuple):
     if hidden_states.ndim == 3:
         B, N, C = hidden_states.shape
     else:
-        # If it's not 3D, try to handle it
         print(f"[WARN] Unexpected tensor shape: {hidden_states.shape}")
         return hidden_states
 
@@ -118,8 +126,7 @@ def vit_reshape_transform(tensor_or_tuple):
 
     # If it doesn't perfectly square, calculate from model config
     if grid_size * grid_size != num_patches:
-        # Default to 14x14 for ViT-Base with 224x224 input
-        grid_size = 14
+        grid_size = 14  # Default for ViT-Base 224x224
         print(f"[INFO] Using default grid_size={grid_size}")
 
     # Rearrange to [B, C, H, W]
@@ -180,9 +187,11 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
             
             # Check if result is valid
-            if grayscale_cam.std() < 1e-5:
+            if grayscale_cam.std() < 1e-5 or grayscale_cam.max() - grayscale_cam.min() < 0.01:
                 print("[WARN] GradCAM produced flat result")
                 grayscale_cam = None
+            else:
+                print(f"✅ GradCAM succeeded")
         except Exception as e:
             print(f"[WARN] GradCAM failed: {e}")
             grayscale_cam = None
@@ -197,9 +206,9 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
                     reshape_transform=vit_reshape_transform,
                 )
                 grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
+                print(f"✅ EigenCAM succeeded")
             except Exception as e:
                 print(f"[ERROR] EigenCAM also failed: {e}")
-                # Last resort: return None and skip heatmap
                 return None
 
     if grayscale_cam is None:
@@ -208,13 +217,13 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
 
-    # --- Normalize and enhance ---
+    # --- Enhanced normalization ---
     cam_std = grayscale_cam.std()
     cam_range = grayscale_cam.max() - grayscale_cam.min()
     print(f"📊 CAM stats: std={cam_std:.4f}, range={cam_range:.4f}")
     
-    # Percentile clipping
-    p_low, p_high = np.percentile(grayscale_cam, [2, 98])
+    # Very light percentile clipping (keep more data)
+    p_low, p_high = np.percentile(grayscale_cam, [1, 99.5])
     grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
     
     # Normalize
@@ -224,23 +233,23 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     else:
         grayscale_cam = np.ones_like(grayscale_cam) * 0.5
     
-    # Adaptive enhancement
-    if cam_std > 0.15:
-        gamma = 1.5
-        threshold = 0.1
-    else:
-        gamma = 2.0
-        threshold = 0.15
+    # More aggressive enhancement for EigenCAM results
+    # Lower gamma and threshold to keep more activation visible
+    gamma = 1.2  # Lower gamma = less aggressive
+    threshold = 0.05  # Lower threshold = keep more activations
+    
+    print(f"🔧 Using gamma={gamma}, threshold={threshold}")
     
     grayscale_cam = np.power(grayscale_cam, gamma)
     grayscale_cam[grayscale_cam < threshold] = 0
     
+    # Re-normalize
     if grayscale_cam.max() > 0:
         grayscale_cam = grayscale_cam / grayscale_cam.max()
     
-    # Light smoothing
+    # Very light smoothing
     from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.5)
+    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.3)
     
     print(f"✅ CAM enhanced: gamma={gamma}, threshold={threshold}")
 
@@ -256,7 +265,9 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
+    
+    # Stronger heatmap blend for better visibility
+    overlay = cv2.addWeighted(img_bgr, 0.5, heatmap_color, 0.5, 0)
 
     # --- Save ---
     if save_path is None:
