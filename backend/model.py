@@ -70,16 +70,9 @@ def predict_image(file_bytes, debug=False):
 
 def _get_vit_target_layers(hf_vit_model):
     """Get the best target layer for ViT GradCAM"""
-    # Use the last attention layer output
+    # Use the last encoder block's output
     last_block = hf_vit_model.vit.encoder.layer[-1]
-    # Try these in order of preference
-    try:
-        return [last_block.attention.attention.dropout]
-    except:
-        try:
-            return [last_block.attention.output.dense]
-        except:
-            return [last_block.output]
+    return [last_block.output]
 
 
 class ViTWrapper(torch.nn.Module):
@@ -97,21 +90,37 @@ class ViTWrapper(torch.nn.Module):
         return out.logits if hasattr(out, "logits") else out
 
 
-def vit_reshape_transform(hidden_states):
+def vit_reshape_transform(tensor_or_tuple):
+    """
+    Reshape ViT hidden states for GradCAM.
+    Handles both single tensor and tuple returns.
+    """
+    # Handle tuple return (some layers return multiple values)
+    if isinstance(tensor_or_tuple, tuple):
+        hidden_states = tensor_or_tuple[0]  # Take first element
+    else:
+        hidden_states = tensor_or_tuple
+    
     # hidden_states shape: [B, N, C]
-    B, N, C = hidden_states.shape
+    if hidden_states.ndim == 3:
+        B, N, C = hidden_states.shape
+    else:
+        # If it's not 3D, try to handle it
+        print(f"[WARN] Unexpected tensor shape: {hidden_states.shape}")
+        return hidden_states
 
-    # Remove CLS token
-    hidden_states = hidden_states[:, 1:, :]   # now [B, N-1, C]
+    # Remove CLS token (first token)
+    hidden_states = hidden_states[:, 1:, :]  # now [B, N-1, C]
 
     # Compute grid size (patch layout)
-    grid_size = int((N - 1) ** 0.5)
+    num_patches = N - 1
+    grid_size = int(num_patches ** 0.5)
 
-    # If it doesn't perfectly square, fall back safely
-    if grid_size * grid_size != (N - 1):
-        patch = 16
-        img_size = model.config.image_size
-        grid_size = img_size // patch
+    # If it doesn't perfectly square, calculate from model config
+    if grid_size * grid_size != num_patches:
+        # Default to 14x14 for ViT-Base with 224x224 input
+        grid_size = 14
+        print(f"[INFO] Using default grid_size={grid_size}")
 
     # Rearrange to [B, C, H, W]
     hidden_states = hidden_states.permute(0, 2, 1)
@@ -120,51 +129,47 @@ def vit_reshape_transform(hidden_states):
     return hidden_states
 
 
-# ---------- main function generate grad cam heatmap ----------
-
-
 def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     """Generate and save a Grad-CAM heatmap overlay for ViT models."""
     start = time.time()
     model.eval()
 
-    # --- Load image (keep original size for visualization) ---
+    # --- Load image ---
     pil_img = Image.open(image_path).convert("RGB")
     orig_w, orig_h = pil_img.size
     print(f"⏱️ Heatmap: Image loaded in {time.time() - start:.2f}s")
 
-    # --- Preprocess for model ---
+    # --- Preprocess ---
     step = time.time()
     inputs = processor(images=pil_img, return_tensors="pt")
     img_tensor = inputs["pixel_values"].to(device)
     if img_tensor.ndim == 3:
         img_tensor = img_tensor.unsqueeze(0)
+    img_tensor.requires_grad_(True)
     print(f"⏱️ Heatmap: Preprocessing took {time.time() - step:.2f}s")
 
-    # - make sure the image tensor can carry gradients
-    img_tensor.requires_grad_(True)
-
-    # --- Model + target layer setup ---
+    # --- Model setup ---
     step = time.time()
     wrapped = ViTWrapper(model).to(device)
+    wrapped.eval()
     target_layers = _get_vit_target_layers(model)
-    print(">>> Using target layer:", target_layers[0])
+    print(f">>> Using target layer: {target_layers[0]}")
     print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
 
-    # Everything from here needs gradients, so force-enable them
-    with torch.enable_grad():
-        # --- Predict class first ---
-        step = time.time()
+    # --- Predict first ---
+    step = time.time()
+    with torch.no_grad():
         outputs = model(**{k: v.to(device) for k, v in inputs.items()})
         logits = outputs.logits if hasattr(outputs, "logits") else outputs
         pred_class = int(torch.argmax(logits, dim=-1).item())
         targets = [ClassifierOutputTarget(pred_class)]
-        print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
+    print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
 
-        # --- Try GradCAM first, then EigenCAM ---
-        step = time.time()
-        grayscale_cam = None
-        
+    # --- Compute CAM with gradients enabled ---
+    step = time.time()
+    grayscale_cam = None
+    
+    with torch.enable_grad():
         # Try GradCAM
         try:
             cam = GradCAM(
@@ -174,16 +179,17 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
             )
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
             
-            # Check if it's flat
-            if grayscale_cam.std() < 1e-5 or grayscale_cam.max() - grayscale_cam.min() < 0.01:
+            # Check if result is valid
+            if grayscale_cam.std() < 1e-5:
                 print("[WARN] GradCAM produced flat result")
                 grayscale_cam = None
         except Exception as e:
             print(f"[WARN] GradCAM failed: {e}")
+            grayscale_cam = None
         
-        # If GradCAM failed, use EigenCAM
+        # Try EigenCAM if GradCAM failed
         if grayscale_cam is None:
-            print("[INFO] Using EigenCAM instead")
+            print("[INFO] Trying EigenCAM instead")
             try:
                 cam = EigenCAM(
                     model=wrapped,
@@ -193,91 +199,79 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
                 grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
             except Exception as e:
                 print(f"[ERROR] EigenCAM also failed: {e}")
-                # Create a simple gradient-based heatmap as last resort
-                img_tensor.retain_grad()
-                outputs = wrapped(img_tensor)
-                outputs[0, pred_class].backward()
-                grayscale_cam = img_tensor.grad[0].abs().mean(dim=0).cpu().numpy()
+                # Last resort: return None and skip heatmap
+                return None
+
+    if grayscale_cam is None:
+        print("[ERROR] Could not generate heatmap")
+        return None
 
     print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
 
-    # --- ADAPTIVE NORMALIZATION AND ENHANCEMENT ---
-    
-    # 1. Check the initial CAM quality
+    # --- Normalize and enhance ---
     cam_std = grayscale_cam.std()
     cam_range = grayscale_cam.max() - grayscale_cam.min()
     print(f"📊 CAM stats: std={cam_std:.4f}, range={cam_range:.4f}")
     
-    # 2. Remove outliers using percentile clipping
-    p_low, p_high = np.percentile(grayscale_cam, [1, 99])
+    # Percentile clipping
+    p_low, p_high = np.percentile(grayscale_cam, [2, 98])
     grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
     
-    # 3. Normalize to 0-1
+    # Normalize
     cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
     if cam_max - cam_min > 1e-8:
         grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
     else:
-        print("[WARN] CAM has no variation")
         grayscale_cam = np.ones_like(grayscale_cam) * 0.5
     
-    # 4. Apply adaptive gamma correction based on CAM quality
-    # Use lower gamma if CAM is already focused, higher if it's diffuse
-    if cam_std > 0.2:  # Good variation
-        gamma = 1.8
+    # Adaptive enhancement
+    if cam_std > 0.15:
+        gamma = 1.5
+        threshold = 0.1
+    else:
+        gamma = 2.0
         threshold = 0.15
-    else:  # Poor variation, need more enhancement
-        gamma = 2.2
-        threshold = 0.20
     
     grayscale_cam = np.power(grayscale_cam, gamma)
-    
-    # 5. Apply threshold to remove weak activations
     grayscale_cam[grayscale_cam < threshold] = 0
     
-    # 6. Re-normalize after thresholding
     if grayscale_cam.max() > 0:
         grayscale_cam = grayscale_cam / grayscale_cam.max()
     
-    # 7. Light Gaussian smoothing for natural appearance
+    # Light smoothing
     from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.6)
+    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.5)
     
     print(f"✅ CAM enhanced: gamma={gamma}, threshold={threshold}")
 
-    # --- Resize CAM to 224×224 with better interpolation ---
+    # --- Resize and create overlay ---
     cam_resized = cv2.resize(
         grayscale_cam.astype(np.float32), 
         (224, 224),
         interpolation=cv2.INTER_CUBIC
     )
 
-    # Prepare image for overlay (224×224)
     img_224 = pil_img.resize((224, 224), Image.Resampling.LANCZOS)
     img_bgr = cv2.cvtColor(np.array(img_224), cv2.COLOR_RGB2BGR)
 
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
-    # --- Blend (overlay) ---
     overlay = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
 
-    # --- Save results ---
+    # --- Save ---
     if save_path is None:
         root, _ = os.path.splitext(image_path)
         save_path = f"{root}_vit_gradcam.jpg"
 
-    step = time.time()
     cv2.imwrite(save_path, overlay, [cv2.IMWRITE_JPEG_QUALITY, 95])
-    print(f"⏱️ Heatmap: Save to disk took {time.time() - step:.2f}s")
     print(f"✅ CAM generation total: {time.time() - start:.2f}s (class={pred_class})")
 
-    # --- Upload to Firebase Storage ---
-    step = time.time()
+    # --- Upload to Firebase ---
     try:
         if not firebase_admin._apps:
             firebase_key_data = os.getenv("FIREBASE_SERVICE_ACCOUNT")
             if not firebase_key_data:
-                raise ValueError("FIREBASE_SERVICE_ACCOUNT environment variable not set")
+                raise ValueError("FIREBASE_SERVICE_ACCOUNT not set")
 
             cred_dict = json.loads(firebase_key_data)
             cred = credentials.Certificate(cred_dict)
@@ -292,7 +286,6 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         blob.make_public()
         heatmap_url = blob.public_url
 
-        print(f"⏱️ Heatmap: Firebase upload took {time.time() - step:.2f}s")
         print(f"✅ Uploaded heatmap to Firebase: {heatmap_url}")
 
         try:
@@ -303,7 +296,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         return heatmap_url
 
     except Exception as e:
-        print(f"[WARN] Firebase upload failed after {time.time() - step:.2f}s:", e)
+        print(f"[WARN] Firebase upload failed: {e}")
         return save_path
 
 
