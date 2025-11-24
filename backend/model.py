@@ -114,7 +114,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     # --- Load original image ---
     pil_img = Image.open(image_path).convert("RGB")
     orig_w, orig_h = pil_img.size
-    print(f"Heatmap: Image loaded in {time.time() - start:.2f}s")
+    print(f"⏱️ Heatmap: Image loaded in {time.time() - start:.2f}s")
 
     # --- Preprocess ---
     step = time.time()
@@ -125,14 +125,14 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     # Make sure gradients can flow
     img_tensor.requires_grad_(True)
-    print(f"Heatmap: Preprocessing took {time.time() - step:.2f}s")
+    print(f"⏱️ Heatmap: Preprocessing took {time.time() - step:.2f}s")
 
     # --- Wrap model ---
     step = time.time()
     wrapped = ViTWrapper(model).to(device)
     wrapped.eval()
     target_layers = _get_vit_target_layers(model)
-    print(f"Heatmap: Model setup took {time.time() - step:.2f}s")
+    print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
 
     # --- GradCAM setup ---
     step = time.time()
@@ -149,7 +149,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         logits = outputs.logits if hasattr(outputs, "logits") else outputs
         pred_class = int(torch.argmax(logits, dim=-1).item())
         targets = [ClassifierOutputTarget(pred_class)]
-    print(f"Heatmap: Prediction took {time.time() - step:.2f}s")
+    print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
 
     # --- Compute CAM ---
     step = time.time()
@@ -157,12 +157,11 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         with torch.enable_grad():
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
 
-        # Normalize safely
+        # Check if CAM is too flat
         cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
-        if cam_max - cam_min > 1e-5:
-            grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
-        else:
+        if cam_max - cam_min < 1e-5:
             raise ValueError("Flat CAM detected")
+            
     except Exception as e:
         print("[WARN] GradCAM failed, switching to EigenCAM:", e)
         cam = EigenCAM(
@@ -172,11 +171,43 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         )
         with torch.enable_grad():
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
-    print(f"Heatmap: CAM computation took {time.time() - step:.2f}s")
+    
+    print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
+
+    # --- IMPROVED NORMALIZATION AND SHARPENING ---
+    
+    # 1. Apply percentile-based normalization (removes outliers)
+    p_low, p_high = np.percentile(grayscale_cam, [5, 95])
+    grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
+    
+    # 2. Normalize to 0-1
+    cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
+    if cam_max - cam_min > 1e-8:
+        grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
+    
+    # 3. Apply power transform to enhance contrast (make it more focused)
+    # Higher gamma = more focused on high-activation areas
+    gamma = 2.0  # Increase for more focus (try 1.5-3.0)
+    grayscale_cam = np.power(grayscale_cam, gamma)
+    
+    # 4. Apply threshold to remove weak activations
+    threshold = 0.3  # Remove activations below 30%
+    grayscale_cam[grayscale_cam < threshold] = 0
+    
+    # 5. Re-normalize after thresholding
+    if grayscale_cam.max() > 0:
+        grayscale_cam = grayscale_cam / grayscale_cam.max()
+    
+    # Optional: Apply Gaussian blur for smoother appearance
+    from scipy.ndimage import gaussian_filter
+    grayscale_cam = gaussian_filter(grayscale_cam, sigma=1.0)
+    
+    print(f"✅ CAM enhanced with gamma={gamma}, threshold={threshold}")
 
     # --- Resize back to original image size ---
     cam_resized = cv2.resize(
-        grayscale_cam.astype(np.float32), (orig_w, orig_h)
+        grayscale_cam.astype(np.float32), (orig_w, orig_h),
+        interpolation=cv2.INTER_CUBIC  # Better interpolation
     )
 
     # --- Convert to overlay ---
@@ -184,7 +215,8 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
-    overlay = cv2.addWeighted(img_bgr, 0.65, heatmap_color, 0.35, 0)
+    # Adjust blend weights for better visibility
+    overlay = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
 
     # --- Save ---
     if save_path is None:
