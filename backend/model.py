@@ -70,24 +70,20 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    """
-    Try several reliable hooks for Hugging Face ViTForImageClassification.
-    Returns a list with a single nn.Module to use as target layer.
-    """
-    last = hf_vit_model.vit.encoder.layer[-1]
-    for path in [
-        "layernorm_after",
-        "layernorm_before",
-        "output.LayerNorm",
-        "layernorm",  # some variants
-    ]:
-        try:
-            mod = eval(f"last.{path}")
-            return [mod]
-        except Exception:
-            pass
-    # safe fallback
-    return [last.output.dense]
+    # Layer for HuggingFace ViT
+    try:
+        return [hf_vit_model.vit.encoder.layer[-1].attention.attention]
+    except:
+        pass
+
+    # Some models use a different naming
+    try:
+        return [hf_vit_model.vit.encoder.layer[-1].attention.attn]
+    except:
+        pass
+
+    # Fallback: use the entire attention block
+    return [hf_vit_model.vit.encoder.layer[-1].attention]
 
 
 class ViTWrapper(torch.nn.Module):
@@ -132,6 +128,8 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     wrapped = ViTWrapper(model).to(device)
     wrapped.eval()
     target_layers = _get_vit_target_layers(model)
+
+    print(">>> Target layer used:", target_layers)
     print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
 
     # --- GradCAM setup ---
