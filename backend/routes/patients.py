@@ -50,8 +50,8 @@ def get_patient_scans(patient_id):
 
     return jsonify([
         {
-            "scan_id": str(r[0]),          # PatientScan.id
-            "prediction_id": str(r[1]),    # Prediction.id (use this in detail page)
+            "scan_id": str(r[0]), 
+            "prediction_id": str(r[1]), 
             "result": r[2],
             "confidence": float(r[3]) if r[3] else 0,
             "image_url": r[4],

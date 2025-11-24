@@ -16,51 +16,94 @@ import json
 from huggingface_hub import login
 import uuid
 
-# Login to Hugging Face using token
-model_name = "itistamtran/vit_brain_tumor_best_model"
-hf_token = os.getenv("HUGGINGFACE_TOKEN")
+MODEL_REPO = "itistamtran/vit_brain_tumor_best_model"
+HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
-print(f"Downloading model from Hugging Face: {model_name}")
+BASE_DIR = os.path.dirname(__file__)
+MODEL_FOLDER = os.path.join(BASE_DIR, "ml_model")
+MODEL_ZIP = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model.zip")
+MODEL_DIR = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model")
+GDRIVE_URL = "https://drive.google.com/uc?id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
 
-try:
-    print(f"Downloading model from Hugging Face: {model_name}")
+CLASS_NAMES = ["glioma", "meningioma", "no_tumor", "pituitary", "unknown"]
+
+# where temp images will be saved in app
+STATIC_MRI_DIR = os.path.join(os.getcwd(), "static", "uploads", "mri")
+os.makedirs(STATIC_MRI_DIR, exist_ok=True)
+
+# MODEL LOADING (RUNS ONCE)
+def _load_from_huggingface():
+    """Try to load model from Hugging Face hub."""
+    print(f"🚀 Loading model from Hugging Face: {MODEL_REPO}")
+
+    # optional explicit login if you really need it (can be omitted)
+    if HF_TOKEN:
+        try:
+            login(token=HF_TOKEN)
+        except Exception as e:
+            print(f"[WARN] HuggingFace login failed: {e}")
+
     model = AutoModelForImageClassification.from_pretrained(
-        model_name, token=hf_token)
+        MODEL_REPO,
+        token=HF_TOKEN,
+    )
     processor = AutoImageProcessor.from_pretrained(
-        model_name, token=hf_token)
-    print("✅ Model loaded successfully from Hugging Face.")
+        MODEL_REPO,
+        token=HF_TOKEN,
+    )
+    print("✅ Model + processor loaded from Hugging Face")
+    return model, processor
 
-except Exception as e:
-    print(f"❌ Failed to load from Hugging Face: {e}")
-    print("Trying fallback to local or Google Drive...")
+def _ensure_local_model_dir():
+    """Download and extract the model zip from Google Drive if needed."""
+    if os.path.exists(MODEL_DIR):
+        return
 
-    BASE_DIR = os.path.dirname(__file__)
-    MODEL_FOLDER = os.path.join(BASE_DIR, "ml_model")
-    MODEL_ZIP = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model.zip")
-    MODEL_DIR = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model")
-    GDRIVE_URL = "https://drive.google.com/uc?id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+    os.makedirs(MODEL_FOLDER, exist_ok=True)
+    print("⬇️  Downloading model from Google Drive fallback...")
 
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_FOLDER, exist_ok=True)
-        print("Downloading model from Google Drive...")
-        gdown.download(GDRIVE_URL, MODEL_ZIP, quiet=False)
+    gdown.download(GDRIVE_URL, MODEL_ZIP, quiet=False)
 
-        print("Extracting model...")
-        with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
-            zip_ref.extractall(MODEL_FOLDER)
-        print("✅ Model downloaded and extracted successfully.")
+    print("📦 Extracting model zip...")
+    with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
+        zip_ref.extractall(MODEL_FOLDER)
 
+    print("✅ Local model directory ready:", MODEL_DIR)
+
+
+def _load_from_local_folder():
+    """Fallback: load model from a local folder (downloaded zip)."""
+    _ensure_local_model_dir()
+    print("📂 Loading model from local folder...")
     model = ViTForImageClassification.from_pretrained(MODEL_DIR)
     processor = ViTImageProcessor.from_pretrained(MODEL_DIR)
-    print("✅ Model loaded from local folder.")
+    print("✅ Model + processor loaded from local folder")
+    return model, processor
 
 
-# --- Device setup ---
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
-model.eval()
+def _load_model():
+    """Main entry: try HF, then local fallback."""
+    try:
+        return _load_from_huggingface()
+    except Exception as e:
+        print(f"❌ Failed to load from Hugging Face: {e}")
+        print("Trying fallback to local or Google Drive...")
+        return _load_from_local_folder()
 
-CLASS_NAMES = ['glioma', 'meningioma', 'no_tumor', 'pituitary', 'unknown']
+# actually load the model ONCE
+_model, _processor = _load_model()
+
+# device setup
+_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_model.to(_device)
+_model.eval()
+
+# public names for import in other modules
+model = _model
+processor = _processor
+device = _device
+
+print(f"✅ Model ready on device: {device}")
 
 
 def predict_image(file_bytes, debug=False):
@@ -89,64 +132,6 @@ def predict_image(file_bytes, debug=False):
         if debug:
             print("Prediction failed:", e)
         return 'Error', None, None
-
-
-def predict_image_with_heatmap(file_bytes, debug=False):
-    import io
-    from PIL import Image
-    import torch
-    import uuid
-
-    try:
-        # Convert bytes to PIL image
-        image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
-
-        # Save a temporary file because GradCAM expects a file path
-        temp_filename = f"{uuid.uuid4().hex}_temp.png"
-        temp_path = os.path.join(os.getcwd(), "static", "uploads", "mri", temp_filename)
-        image.save(temp_path)
-
-        # Run prediction
-        inputs = processor(images=image, return_tensors="pt").to(device)
-
-        with torch.no_grad():
-            outputs = model(**inputs)
-            probs = torch.nn.functional.softmax(outputs.logits, dim=-1).cpu().numpy()[0]
-
-        predicted_idx = probs.argmax()
-        confidence = float(probs[predicted_idx])
-        predicted_class = CLASS_NAMES[predicted_idx]
-
-        # If model not confident enough return no heatmap
-        if confidence < 0.6:
-            print("⚠ Low confidence, skipping heatmap")
-            return predicted_class, confidence, None
-
-        # ---- Generate Heatmap ----
-        heatmap_path = generate_vit_gradcam(
-            model,
-            temp_path,        # NOTE: using file path, not PIL
-            processor,
-            device
-        )
-
-        # Load heatmap output into PIL object
-        heatmap_img = Image.open(heatmap_path).convert("RGB")
-
-        print("🔥 Heatmap generated successfully")
-
-        # Optionally delete temp file
-        try:
-            os.remove(temp_path)
-        except:
-            pass
-
-        return predicted_class, confidence, heatmap_img
-
-    except Exception as e:
-        print("❌ Heatmap generation failed:", e)
-        return predicted_class, confidence, None
-
 
 
 # ---------- helpers function to generate grad cam heatmap ----------
@@ -288,3 +273,55 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     except Exception as e:
         print("[WARN] Firebase upload failed:", e)
         return save_path
+
+
+def predict_image_with_heatmap(file_bytes, debug=False):
+    try:
+        # Convert bytes to PIL image
+        image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+
+        # Save a temporary file because GradCAM expects a file path
+        temp_filename = f"{uuid.uuid4().hex}_temp.png"
+        temp_path = os.path.join(os.getcwd(), "static", "uploads", "mri", temp_filename)
+        image.save(temp_path)
+
+        # Run prediction
+        inputs = processor(images=image, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            probs = torch.nn.functional.softmax(outputs.logits, dim=-1).cpu().numpy()[0]
+
+        predicted_idx = probs.argmax()
+        confidence = float(probs[predicted_idx])
+        predicted_class = CLASS_NAMES[predicted_idx]
+
+        # If model not confident enough return no heatmap
+        if confidence < 0.6:
+            print("⚠ Low confidence, skipping heatmap")
+            return predicted_class, confidence, None
+
+        # ---- Generate Heatmap ----
+        heatmap_path = generate_vit_gradcam(
+            model,
+            temp_path,        # NOTE: using file path, not PIL
+            processor,
+            device
+        )
+
+        # Load heatmap output into PIL object
+        heatmap_img = Image.open(heatmap_path).convert("RGB")
+
+        print("🔥 Heatmap generated successfully")
+
+        # Optionally delete temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+
+        return predicted_class, confidence, heatmap_img
+
+    except Exception as e:
+        print("❌ Heatmap generation failed:", e)
+        return predicted_class, confidence, None
