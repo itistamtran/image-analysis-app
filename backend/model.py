@@ -85,18 +85,29 @@ class ViTWrapper(torch.nn.Module):
 
 def _get_vit_target_layers(hf_vit_model):
     """Get the best target layer for ViT GradCAM"""
-    # Use LayerNorm after the last attention block
-    # This tends to work better than the output layer
+    # Try multiple layer options in order of preference
     last_block = hf_vit_model.vit.encoder.layer[-1]
     
-    # Try to get the layernorm after attention
+    # Attention output (best for ViT)
+    try:
+        return [last_block.attention.output.dense]
+    except:
+        pass
+    
+    # LayerNorm after attention
     try:
         return [last_block.layernorm_after]
     except:
-        try:
-            return [last_block.layernorm_before]
-        except:
-            return [last_block.output]
+        pass
+    
+    # Final output layer
+    try:
+        return [last_block.output.dense]
+    except:
+        pass
+    
+    # Fallback: whole output module
+    return [last_block.output]
 
 
 def vit_reshape_transform(tensor_or_tuple):
