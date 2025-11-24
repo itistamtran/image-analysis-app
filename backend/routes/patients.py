@@ -2,13 +2,16 @@ import os
 import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from werkzeug.utils import secure_filename
 
 from utils.db import get_db_connection
 from model import predict_image_with_heatmap, model, processor, device, generate_vit_gradcam
 
 patient_bp = Blueprint("patient", __name__)
+
+# Enable CORS on the blueprint itself
+CORS(patient_bp, supports_credentials=True)
 
 UPLOAD_DIR = os.path.join(os.getcwd(), "static", "uploads", "mri")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -17,8 +20,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # ============================
 # GET PATIENT SCANS
 # ============================
-@patient_bp.get("/<patient_id>/scans")
+@patient_bp.route("/<patient_id>/scans", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_patient_scans(patient_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     print("📌 GET /patients/.../scans", patient_id)
 
     conn = get_db_connection()
@@ -65,8 +72,12 @@ def get_patient_scans(patient_id):
 # ============================
 # UPLOAD & PREDICT FOR PATIENT
 # ============================
-@patient_bp.post("/<patient_id>/upload_scan")
+@patient_bp.route("/<patient_id>/upload_scan", methods=["POST", "OPTIONS"])
+@cross_origin()
 def upload_scan_for_patient(patient_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     print("📌 POST /patients/.../upload_scan", patient_id)
 
     conn = get_db_connection()
@@ -75,9 +86,13 @@ def upload_scan_for_patient(patient_id):
     # Ensure patient exists
     cur.execute('SELECT id FROM "Patients" WHERE id = %s', (patient_id,))
     if not cur.fetchone():
+        cur.close()
+        conn.close()
         return jsonify({"error": "Patient not found"}), 404
 
     if "image" not in request.files:
+        cur.close()
+        conn.close()
         return jsonify({"error": "No image uploaded"}), 400
     
     file = request.files["image"]
@@ -116,7 +131,6 @@ def upload_scan_for_patient(patient_id):
         VALUES (%s, %s, %s, %s, %s, %s)
     """, (str(prediction_id), result, confidence, image_url, heatmap_url, created_at))
 
-
     scan_id = uuid.uuid4()
     cur.execute("""
         INSERT INTO "PatientScan" (id, patient_id, prediction_id, created_at)
@@ -127,19 +141,21 @@ def upload_scan_for_patient(patient_id):
     cur.close()
     conn.close()
 
-    
-
     return jsonify({
         "message": "Scan uploaded",
         "result": result,
         "confidence": confidence,
         "image_url": image_url,
-        "heatmap_url": heatmap_path
+        "heatmap_url": heatmap_url  # Fixed: was heatmap_path
     }), 201
 
 
-@patient_bp.get("/<user_id>/assigned")
+@patient_bp.route("/<user_id>/assigned", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_assigned_doctor(user_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         print(f"✓ GET /patients/{user_id}/assigned called")
         conn = get_db_connection()
@@ -175,8 +191,12 @@ def get_assigned_doctor(user_id):
         return jsonify({"error": str(e)}), 500
 
     
-@patient_bp.get("/scan/<scan_id>")
+@patient_bp.route("/scan/<scan_id>", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_scan(scan_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     print(f"📌 GET /patients/scan/{scan_id}")
     conn = get_db_connection()
     cur = conn.cursor()
@@ -196,7 +216,6 @@ def get_scan(scan_id):
     WHERE ps.id = %s
     """, (scan_id,))
 
-    
     row = cur.fetchone()
     
     # If not found, try looking directly in Prediction table
@@ -224,4 +243,4 @@ def get_scan(scan_id):
         "image_url": row[4],
         "heatmap_url": row[5], 
         "created_at": row[6].isoformat() if row[6] else None
-}), 200
+    }), 200

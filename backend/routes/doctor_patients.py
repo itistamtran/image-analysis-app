@@ -1,12 +1,19 @@
 from flask import Blueprint, request, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from utils.db import get_db_connection
 
 doctor_bp = Blueprint("doctor", __name__)
 
+# Enable CORS on the blueprint itself
+CORS(doctor_bp, supports_credentials=True)
+
 # GET doctor info
-@doctor_bp.route("/<doctor_id>", methods=["GET"])
+@doctor_bp.route("/<doctor_id>", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_doctor(doctor_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         print(f"✓ GET /doctors/{doctor_id} called")
         conn = get_db_connection()
@@ -44,8 +51,12 @@ def get_doctor(doctor_id):
 
 
 # GET all patients assigned to a doctor
-@doctor_bp.route("/<doctor_id>/patients", methods=["GET"])
+@doctor_bp.route("/<doctor_id>/patients", methods=["GET", "OPTIONS"])
+@cross_origin()
 def get_doctor_patients(doctor_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         print(f"✓ GET /doctors/{doctor_id}/patients called")
 
@@ -119,8 +130,12 @@ def get_doctor_patients(doctor_id):
 
 
 # POST - Add patient
-@doctor_bp.route("/<doctor_id>/patients", methods=["POST"])
+@doctor_bp.route("/<doctor_id>/patients", methods=["POST", "OPTIONS"])
+@cross_origin()
 def add_patient(doctor_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         data = request.get_json()
 
@@ -185,10 +200,13 @@ def add_patient(doctor_id):
         return jsonify({"error": str(e)}), 500
 
 
-
 # PUT - Update
-@doctor_bp.route("/<doctor_id>/patients/<patient_id>", methods=["PUT"])
+@doctor_bp.route("/<doctor_id>/patients/<patient_id>", methods=["PUT", "OPTIONS"])
+@cross_origin()
 def update_patient(doctor_id, patient_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         data = request.get_json()
 
@@ -239,10 +257,13 @@ def update_patient(doctor_id, patient_id):
         return jsonify({"error": str(e)}), 500
 
 
-
 # DELETE
-@doctor_bp.route("/<doctor_id>/patients/<patient_id>", methods=["DELETE"])
+@doctor_bp.route("/<doctor_id>/patients/<patient_id>", methods=["DELETE", "OPTIONS"])
+@cross_origin()
 def delete_patient(doctor_id, patient_id):
+    if request.method == "OPTIONS":
+        return "", 204
+        
     try:
         conn = get_db_connection()
         cur = conn.cursor()
