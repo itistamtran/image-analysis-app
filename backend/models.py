@@ -122,7 +122,7 @@ class Log(Base):
     user = relationship("User", back_populates="logs")
 
 class Patient(Base):
-    __tablename__ = "patients"
+    __tablename__ = "Patients"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     doctor_id = Column(UUID(as_uuid=True), ForeignKey("User.id"), nullable=False)
@@ -158,5 +158,5 @@ class PatientScan(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    patient = relationship("Patients", back_populates="scans")
+    patient = relationship("Patient", back_populates="scans")
     prediction = relationship("Prediction", back_populates="patient_scans")
