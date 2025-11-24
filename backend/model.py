@@ -163,19 +163,18 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     grayscale_cam = grayscale_cam - grayscale_cam.min()
     grayscale_cam = grayscale_cam / (grayscale_cam.max() + 1e-8)
 
-    # --- Resize CAM to original size ---
-    cam_resized = cv2.resize(
-        grayscale_cam.astype(np.float32),
-        (orig_w, orig_h)
-    )
+    # --- Resize CAM to 224×224, ---
+    cam_resized = cv2.resize(grayscale_cam, (224, 224))
 
-    # --- Convert images for overlay ---
-    img_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    # Prepare image for overlay (224×224)
+    img_224 = pil_img.resize((224, 224))
+    img_bgr = cv2.cvtColor(np.array(img_224), cv2.COLOR_RGB2BGR)
+
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
     # --- Blend (overlay) ---
-    overlay = cv2.addWeighted(img_bgr, 0.65, heatmap_color, 0.35, 0)
+    overlay = cv2.addWeighted(img_bgr, 0.55, heatmap_color, 0.45, 0)
 
     # --- Save results ---
     if save_path is None:
