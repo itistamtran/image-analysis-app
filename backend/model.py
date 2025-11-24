@@ -140,7 +140,6 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         model=wrapped,
         target_layers=target_layers,
         reshape_transform=vit_reshape_transform,
-        use_cuda=(device.type == "cuda")
     )
 
     # --- Predict class with gradients enabled ---
@@ -170,7 +169,6 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
             model=wrapped,
             target_layers=target_layers,
             reshape_transform=vit_reshape_transform,
-            use_cuda=(device.type == "cuda")
         )
         with torch.enable_grad():
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
