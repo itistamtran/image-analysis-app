@@ -70,23 +70,14 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    enc = hf_vit_model.vit.encoder
-    last = enc.layer[-1]
-
-    # 1. Prefer layernorm_after if it exists (common in HF ViT)
-    if hasattr(last, "layernorm_after"):
-        return [last.layernorm_after]
-
-    # 2. Otherwise try output.layernorm
-    if hasattr(last, "output") and hasattr(last.output, "layernorm"):
-        return [last.output.layernorm]
-
-    # 3. Fallback: output.dense (still token-shaped before pooling)
-    if hasattr(last, "output") and hasattr(last.output, "dense"):
-        return [last.output.dense]
-
-    # 4. Last fallback: the whole block
-    return [last]
+    try:
+        # Most ViT models (ViTForImageClassification)
+        return [hf_vit_model.vit.encoder.layer[-1].layernorm_before]
+    except:
+        try:
+            return [hf_vit_model.vit.encoder.layer[-1].layernorm_after]
+        except:
+            raise ValueError("Could not locate correct target layer for ViT")
 
 
 class ViTWrapper(torch.nn.Module):
@@ -132,7 +123,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     wrapped.eval()
     target_layers = _get_vit_target_layers(model)
 
-    print(">>> Target layer used:", target_layers)
+    print("\n>>> Using target layer:", target_layers[0])
     print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
 
     # --- GradCAM setup ---
