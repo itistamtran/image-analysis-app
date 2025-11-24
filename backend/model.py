@@ -234,8 +234,8 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         grayscale_cam = np.ones_like(grayscale_cam) * 0.5
     
     # MUCH more aggressive enhancement to focus on tumor
-    gamma = 2.5  # Strong focus
-    threshold = 0.20  # Remove a lot of weak activations
+    gamma = 3.5  # Strong focus
+    threshold = 0.30  # Remove a lot of weak activations
     
     print(f"🔧 Using gamma={gamma}, threshold={threshold}")
     
@@ -269,7 +269,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
     
     # Balanced blend
-    overlay = cv2.addWeighted(img_bgr, 0.60, heatmap_color, 0.40, 0)
+    overlay = cv2.addWeighted(img_bgr, 0.65, heatmap_color, 0.35, 0)
 
     # --- Save ---
     if save_path is None:
