@@ -70,20 +70,20 @@ def predict_image(file_bytes, debug=False):
 # ---------- helpers function to generate grad cam heatmap ----------
 
 def _get_vit_target_layers(hf_vit_model):
-    # Layer for HuggingFace ViT
+    # Correct attention output layer for HF ViT models
     try:
-        return [hf_vit_model.vit.encoder.layer[-1].attention.attention]
+        return [hf_vit_model.vit.encoder.layer[-1].attention.output.dense]
     except:
         pass
 
-    # Some models use a different naming
+    # Fallback
     try:
-        return [hf_vit_model.vit.encoder.layer[-1].attention.attn]
+        return [hf_vit_model.vit.encoder.layer[-1].attention.output]
     except:
         pass
 
-    # Fallback: use the entire attention block
-    return [hf_vit_model.vit.encoder.layer[-1].attention]
+    # Last fallback: final encoder layer
+    return [hf_vit_model.vit.encoder.layer[-1]]
 
 
 class ViTWrapper(torch.nn.Module):
