@@ -162,10 +162,23 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
 
     print(f"Heatmap: CAM computation took {time.time() - step:.2f}s")
 
-    grayscale_cam = grayscale_cam - grayscale_cam.min()
-    grayscale_cam = grayscale_cam / (grayscale_cam.max() + 1e-8)
+    # --------- IMPROVED NORMALIZATION ---------
+    cam = grayscale_cam.astype(np.float32)
 
-    cam_resized = cv2.resize(grayscale_cam, (224, 224))
+    # 1. clip out extreme low/high values to get rid of noise
+    p_low, p_high = np.percentile(cam, [10, 99])
+    cam = np.clip(cam, p_low, p_high)
+
+    # 2. renormalize to 0..1
+    cam = cam - cam.min()
+    cam = cam / (cam.max() + 1e-8)
+
+    # 3. light gamma to boost mid/high activations
+    gamma = 0.7   # < 1 makes the “hot” region stand out more
+    cam = np.power(cam, gamma)
+
+    # ------------------------------------------------------------------------
+    cam_resized = cv2.resize(cam, (224, 224))
 
     img_224 = pil_img.resize((224, 224))
     img_bgr = cv2.cvtColor(np.array(img_224), cv2.COLOR_RGB2BGR)
