@@ -16,26 +16,24 @@ import uuid
 
 MODEL_REPO = "itistamtran/vit_brain_tumor_multiclass_v2"
 
-# Where GradCAM temp images will be saved
-STATIC_MRI_DIR = os.path.join(os.getcwd(), "static", "uploads", "mri")
-os.makedirs(STATIC_MRI_DIR, exist_ok=True)
-
 print(f"🚀 Loading model from Hugging Face: {MODEL_REPO}")
 
-# Load model + processor (public repo – no token needed)
+# Safe loading: prevent random resume crashes on Railway
 model = AutoModelForImageClassification.from_pretrained(
     MODEL_REPO,
     local_files_only=False,
+    force_download=False,
+    resume_download=False,
 )
 processor = AutoImageProcessor.from_pretrained(
     MODEL_REPO,
     local_files_only=False,
+    force_download=False,
+    resume_download=False,
 )
 
-# class labels from HF config
-CLASS_NAMES = model.config.id2label  # dict {0: label}
+CLASS_NAMES = model.config.id2label
 
-# Device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 model.eval()

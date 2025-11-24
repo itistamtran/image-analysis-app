@@ -79,10 +79,7 @@ CORS(
 
 # Register Blueprints
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
-app.register_blueprint(patient_bp)
-
-
-
+app.register_blueprint(patient_bp, url_prefix="/patients")
 
 # Database connection setup
 DATABASE_URL = os.getenv("NEON_DATABASE_URL")

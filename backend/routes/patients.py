@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # ============================
 # GET PATIENT SCANS
 # ============================
-@patient_bp.get("/patients/<patient_id>/scans")
+@patient_bp.get("/<patient_id>/scans")
 def get_patient_scans(patient_id):
     print("📌 GET /patients/.../scans", patient_id)
 
@@ -65,7 +65,7 @@ def get_patient_scans(patient_id):
 # ============================
 # UPLOAD & PREDICT FOR PATIENT
 # ============================
-@patient_bp.post("/patients/<patient_id>/upload_scan")
+@patient_bp.post("/<patient_id>/upload_scan")
 def upload_scan_for_patient(patient_id):
     print("📌 POST /patients/.../upload_scan", patient_id)
 
@@ -138,7 +138,7 @@ def upload_scan_for_patient(patient_id):
     }), 201
 
 
-@patient_bp.get("/patients/<user_id>/assigned")
+@patient_bp.get("/<user_id>/assigned")
 def get_assigned_doctor(user_id):
     try:
         print(f"✓ GET /patients/{user_id}/assigned called")
@@ -175,7 +175,7 @@ def get_assigned_doctor(user_id):
         return jsonify({"error": str(e)}), 500
 
     
-@patient_bp.get("/patients/scan/<scan_id>")
+@patient_bp.get("/scan/<scan_id>")
 def get_scan(scan_id):
     print(f"📌 GET /patients/scan/{scan_id}")
     conn = get_db_connection()
