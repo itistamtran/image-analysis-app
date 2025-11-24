@@ -12,31 +12,30 @@ import firebase_admin
 from firebase_admin import storage, credentials
 import json
 import uuid
+import time
 
 
 MODEL_REPO = "itistamtran/vit_brain_tumor_multiclass_v2"
 
 print(f"🚀 Loading model from Hugging Face: {MODEL_REPO}")
 
-# Safe loading: prevent random resume crashes on Railway
+# Load model with optimizations
 model = AutoModelForImageClassification.from_pretrained(
     MODEL_REPO,
-    local_files_only=False,
-    force_download=False,
-    resume_download=False,
+    torch_dtype=torch.float32,
+    low_cpu_mem_usage=True,
 )
-processor = AutoImageProcessor.from_pretrained(
-    MODEL_REPO,
-    local_files_only=False,
-    force_download=False,
-    resume_download=False,
-)
+processor = AutoImageProcessor.from_pretrained(MODEL_REPO)
 
 CLASS_NAMES = model.config.id2label
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 model.eval()
+
+# Set these at module level for optimization
+torch.set_grad_enabled(False)
+torch.set_num_threads(2)
 
 print(f"✅ Model ready on device: {device}")
 
@@ -111,23 +110,30 @@ class ViTWrapper(torch.nn.Module):
 
 def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     """Generate and save a Grad-CAM heatmap overlay for ViT models."""
+    start = time.time()
     model.eval()
 
     # --- Load image (keep original size for visualization) ---
     pil_img = Image.open(image_path).convert("RGB")
     orig_w, orig_h = pil_img.size
+    print(f"⏱️ Heatmap: Image loaded in {time.time() - start:.2f}s")
 
     # --- Preprocess for model (resized to 224x224 for consistency) ---
+    step = time.time()
     inputs = processor(images=pil_img, return_tensors="pt")
     img_tensor = inputs["pixel_values"].to(device)
     if img_tensor.ndim == 3:
         img_tensor = img_tensor.unsqueeze(0)
+    print(f"⏱️ Heatmap: Preprocessing took {time.time() - step:.2f}s")
 
     # --- Model setup ---
+    step = time.time()
     wrapped = ViTWrapper(model).to(device)
     target_layers = _get_vit_target_layers(model)
+    print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
 
     # --- GradCAM setup ---
+    step = time.time()
     cam = GradCAM(model=wrapped, target_layers=target_layers,
                   reshape_transform=vit_reshape_transform)
 
@@ -136,8 +142,10 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
     logits = outputs.logits if hasattr(outputs, "logits") else outputs
     pred_class = int(torch.argmax(logits, dim=-1).item())
     targets = [ClassifierOutputTarget(pred_class)]
+    print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
 
     # --- Compute GradCAM / fallback EigenCAM ---
+    step = time.time()
     try:
         grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
         if grayscale_cam.std() < 1e-5:
@@ -147,6 +155,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         cam = EigenCAM(model=wrapped, target_layers=target_layers,
                        reshape_transform=vit_reshape_transform)
         grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
+    print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
 
     # --- Normalize ---
     grayscale_cam = (grayscale_cam - grayscale_cam.min()) / \
@@ -169,12 +178,14 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         root, _ = os.path.splitext(image_path)
         save_path = f"{root}_vit_gradcam.jpg"
 
+    step = time.time()
     cv2.imwrite(save_path, overlay)
-    cv2.imwrite(save_path.replace(".jpg", "_heatmap_only.jpg"), heatmap_color)
+    print(f"⏱️ Heatmap: Save to disk took {time.time() - step:.2f}s")
 
-    print(f"✅ CAM saved at {save_path} (class={pred_class})")
+    print(f"✅ CAM generation total: {time.time() - start:.2f}s (class={pred_class})")
 
     # --- Upload to Firebase Storage ---
+    step = time.time()
     try:
         # Initialize Firebase only once
         if not firebase_admin._apps:
@@ -196,6 +207,7 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         blob.make_public()
         heatmap_url = blob.public_url
 
+        print(f"⏱️ Heatmap: Firebase upload took {time.time() - step:.2f}s")
         print(f"✅ Uploaded heatmap to Firebase: {heatmap_url}")
 
         try:
@@ -206,21 +218,31 @@ def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
         return heatmap_url
 
     except Exception as e:
-        print("[WARN] Firebase upload failed:", e)
+        print(f"[WARN] Firebase upload failed after {time.time() - step:.2f}s:", e)
         return save_path
 
 
 def predict_image_with_heatmap(file_bytes, debug=False):
+    """Optimized prediction with detailed timing"""
+    total_start = time.time()
+    temp_path = None
+    
     try:
-        # Convert bytes to PIL image
+        # 1. Load image
+        step = time.time()
         image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+        print(f"⏱️ Image loaded in {time.time() - step:.2f}s")
 
-        # Save a temporary file because GradCAM expects a file path
+        # 2. Save temporary file for GradCAM
+        step = time.time()
         temp_filename = f"{uuid.uuid4().hex}_temp.png"
         temp_path = os.path.join(os.getcwd(), "static", "uploads", "mri", temp_filename)
+        os.makedirs(os.path.dirname(temp_path), exist_ok=True)
         image.save(temp_path)
+        print(f"⏱️ Temp file saved in {time.time() - step:.2f}s")
 
-        # Run prediction
+        # 3. Run prediction
+        step = time.time()
         inputs = processor(images=image, return_tensors="pt").to(device)
 
         with torch.no_grad():
@@ -230,33 +252,52 @@ def predict_image_with_heatmap(file_bytes, debug=False):
         predicted_idx = probs.argmax()
         confidence = float(probs[predicted_idx])
         predicted_class = CLASS_NAMES[predicted_idx]
+        print(f"⏱️ Prediction took {time.time() - step:.2f}s - Result: {predicted_class} ({confidence:.2%})")
 
-        # If model not confident enough return no heatmap
-        if confidence < 0.6:
-            print("⚠ Low confidence, skipping heatmap")
-            return predicted_class, confidence, None
+        # 4. Generate heatmap only if confidence is high enough
+        heatmap_img = None
+        if confidence >= 0.6:
+            try:
+                step = time.time()
+                heatmap_path = generate_vit_gradcam(
+                    model,
+                    temp_path,
+                    processor,
+                    device
+                )
+                print(f"⏱️ Total heatmap generation: {time.time() - step:.2f}s")
 
-        # ---- Generate Heatmap ----
-        heatmap_path = generate_vit_gradcam(
-            model,
-            temp_path,        # NOTE: using file path, not PIL
-            processor,
-            device
-        )
+                # Load heatmap output into PIL object (if it's a local path)
+                if heatmap_path and not heatmap_path.startswith("http"):
+                    heatmap_img = Image.open(heatmap_path).convert("RGB")
+                    print("🔥 Heatmap generated successfully")
+                else:
+                    # Firebase URL was returned
+                    print(f"🔥 Heatmap uploaded to: {heatmap_path}")
 
-        # Load heatmap output into PIL object
-        heatmap_img = Image.open(heatmap_path).convert("RGB")
+            except Exception as e:
+                print(f"❌ Heatmap generation failed: {e}")
+        else:
+            print(f"⚠️ Low confidence ({confidence:.2%}), skipping heatmap")
 
-        print("🔥 Heatmap generated successfully")
+        # Cleanup temp file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
-        # Optionally delete temp file
-        try:
-            os.remove(temp_path)
-        except:
-            pass
-
+        print(f"✅ TOTAL prediction time: {time.time() - total_start:.2f}s")
         return predicted_class, confidence, heatmap_img
 
     except Exception as e:
-        print("❌ Heatmap generation failed:", e)
-        return predicted_class, confidence, None
+        print(f"❌ Prediction failed after {time.time() - total_start:.2f}s: {e}")
+        
+        # Cleanup on error
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+        
+        raise

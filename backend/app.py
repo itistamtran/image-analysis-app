@@ -49,6 +49,8 @@ app = Flask(
     static_folder="static", # relative to backend/
     static_url_path="/static" # URL path prefix
 )
+# Load env + secret key
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # Apply proxy fix
 app.config['APPLICATION_ROOT'] = '/'
@@ -58,9 +60,6 @@ app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
-
-# Load env + secret key
-app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # CORS setup
 ALLOWED_ORIGINS = [

@@ -36,6 +36,5 @@ COPY . /app
 EXPOSE 8080
 ENV PORT=8080
 
-CMD ["gunicorn", "-w", "1", "--timeout", "300", "--graceful-timeout", "300", \
-     "--worker-tmp-dir", "/dev/shm", \
-     "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-w", "1", "--timeout", "600", "--graceful-timeout", "600", \
+     "--worker-tmp-dir", "/dev/shm", "-b", "0.0.0.0:8080", "app:app"]
