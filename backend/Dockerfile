@@ -22,7 +22,7 @@ COPY requirements.txt /app/
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the model during build (not runtime)
+# Pre-download the model during build
 RUN python -c "from transformers import AutoModelForImageClassification, AutoImageProcessor; \
     MODEL_REPO='itistamtran/vit_brain_tumor_multiclass_v2'; \
     AutoModelForImageClassification.from_pretrained(MODEL_REPO); \
@@ -33,8 +33,7 @@ COPY . /app
 EXPOSE 8080
 ENV PORT=8080
 
-# Increased timeout and memory optimizations
-CMD ["gunicorn", "-w", "1", "-k", "uvicorn.workers.UvicornWorker", \
-     "--timeout", "300", "--graceful-timeout", "300", \
+# Flask with Gunicorn
+CMD ["gunicorn", "-w", "1", "--timeout", "300", "--graceful-timeout", "300", \
      "--worker-tmp-dir", "/dev/shm", \
      "-b", "0.0.0.0:8080", "app:app"]
