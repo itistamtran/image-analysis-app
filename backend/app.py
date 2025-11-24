@@ -65,15 +65,16 @@ ALLOWED_ORIGINS = [
     "https://medscanai.vercel.app",
     "https://www.medscanai.net",
     "https://medscanai.net",
-    "https://medscanai.up.railway.app",
 ]
 CORS(
     app,
     resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-    methods=["GET", "PUT", "POST", "DELETE", "OPTIONS"],
-    expose_headers=["Content-Type"]
+    expose_headers=["Content-Type"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    send_wildcard=False,  
+    vary_header=True    
 )
 
 # Register Blueprints
