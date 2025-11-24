@@ -84,211 +84,105 @@ class ViTWrapper(torch.nn.Module):
 
 
 def _get_vit_target_layers(hf_vit_model):
-    """Get the best target layer for ViT GradCAM"""
-    # Try multiple layer options in order of preference
+    """
+    Target layer for ViT Grad-CAM:
+    use the output of the last encoder block,
+    which contains spatial token embeddings.
+    """
     last_block = hf_vit_model.vit.encoder.layer[-1]
-    
-    # Attention output (best for ViT)
-    try:
-        return [last_block.attention.output.dense]
-    except:
-        pass
-    
-    # LayerNorm after attention
-    try:
-        return [last_block.layernorm_after]
-    except:
-        pass
-    
-    # Final output layer
-    try:
-        return [last_block.output.dense]
-    except:
-        pass
-    
-    # Fallback: whole output module
     return [last_block.output]
 
 
-def vit_reshape_transform(tensor_or_tuple):
-    """
-    Reshape ViT hidden states for GradCAM.
-    Handles both single tensor and tuple returns.
-    """
-    # Handle tuple return (some layers return multiple values)
-    if isinstance(tensor_or_tuple, tuple):
-        hidden_states = tensor_or_tuple[0]  # Take first element
-    else:
-        hidden_states = tensor_or_tuple
-    
-    # hidden_states shape: [B, N, C]
-    if hidden_states.ndim == 3:
-        B, N, C = hidden_states.shape
-    else:
-        print(f"[WARN] Unexpected tensor shape: {hidden_states.shape}")
-        return hidden_states
+def vit_reshape_transform(hidden_states):
+    B, N, C = hidden_states.shape
+    hidden_states = hidden_states[:, 1:, :]   # remove CLS
+    grid_size = int((N - 1) ** 0.5)
 
-    # Remove CLS token (first token)
-    hidden_states = hidden_states[:, 1:, :]  # now [B, N-1, C]
+    if grid_size * grid_size != (N - 1):
+        patch = 16
+        img_size = model.config.image_size
+        grid_size = img_size // patch
 
-    # Compute grid size (patch layout)
-    num_patches = N - 1
-    grid_size = int(num_patches ** 0.5)
-
-    # If it doesn't perfectly square, calculate from model config
-    if grid_size * grid_size != num_patches:
-        grid_size = 14  # Default for ViT-Base 224x224
-        print(f"[INFO] Using default grid_size={grid_size}")
-
-    # Rearrange to [B, C, H, W]
     hidden_states = hidden_states.permute(0, 2, 1)
     hidden_states = hidden_states.reshape(B, C, grid_size, grid_size)
-
     return hidden_states
 
 
+# ---------- GRAD-CAM MAIN FUNCTION ----------
+
 def generate_vit_gradcam(model, image_path, processor, device, save_path=None):
-    """Generate and save a Grad-CAM heatmap overlay for ViT models."""
     start = time.time()
     model.eval()
 
-    # --- Load image ---
     pil_img = Image.open(image_path).convert("RGB")
-    orig_w, orig_h = pil_img.size
-    print(f"⏱️ Heatmap: Image loaded in {time.time() - start:.2f}s")
+    print(f"Heatmap: Image loaded in {time.time() - start:.2f}s")
 
-    # --- Preprocess ---
     step = time.time()
     inputs = processor(images=pil_img, return_tensors="pt")
     img_tensor = inputs["pixel_values"].to(device)
     if img_tensor.ndim == 3:
         img_tensor = img_tensor.unsqueeze(0)
-    img_tensor.requires_grad_(True)
-    print(f"⏱️ Heatmap: Preprocessing took {time.time() - step:.2f}s")
+    print(f"Heatmap: Preprocessing took {time.time() - step:.2f}s")
 
-    # --- Model setup ---
+    img_tensor.requires_grad_(True)
+
     step = time.time()
     wrapped = ViTWrapper(model).to(device)
-    wrapped.eval()
     target_layers = _get_vit_target_layers(model)
-    print(f">>> Using target layer: {target_layers[0]}")
-    print(f"⏱️ Heatmap: Model setup took {time.time() - step:.2f}s")
+    print(">>> Using target layer:", target_layers[0])
+    print(f"Heatmap: Model setup took {time.time() - step:.2f}s")
 
-    # --- Predict first ---
-    step = time.time()
-    with torch.no_grad():
+    with torch.enable_grad():
+        step = time.time()
+        cam = GradCAM(
+            model=wrapped,
+            target_layers=target_layers,
+            reshape_transform=vit_reshape_transform,
+        )
+
         outputs = model(**{k: v.to(device) for k, v in inputs.items()})
         logits = outputs.logits if hasattr(outputs, "logits") else outputs
         pred_class = int(torch.argmax(logits, dim=-1).item())
         targets = [ClassifierOutputTarget(pred_class)]
-    print(f"⏱️ Heatmap: Prediction took {time.time() - step:.2f}s")
+        print(f"Heatmap: Prediction took {time.time() - step:.2f}s")
 
-    # --- Compute CAM with gradients enabled ---
-    step = time.time()
-    grayscale_cam = None
-    
-    with torch.enable_grad():
-        # Try GradCAM
+        step = time.time()
         try:
-            cam = GradCAM(
+            grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
+            if grayscale_cam.std() < 1e-5:
+                raise ValueError("Flat CAM detected.")
+        except Exception as e:
+            print("[WARN] GradCAM failed, switching to EigenCAM:", e)
+            cam = EigenCAM(
                 model=wrapped,
                 target_layers=target_layers,
                 reshape_transform=vit_reshape_transform,
             )
             grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
-            
-            # Check if result is valid
-            if grayscale_cam.std() < 1e-5 or grayscale_cam.max() - grayscale_cam.min() < 0.01:
-                print("[WARN] GradCAM produced flat result")
-                grayscale_cam = None
-            else:
-                print(f"✅ GradCAM succeeded")
-        except Exception as e:
-            print(f"[WARN] GradCAM failed: {e}")
-            grayscale_cam = None
-        
-        # Try EigenCAM if GradCAM failed
-        if grayscale_cam is None:
-            print("[INFO] Trying EigenCAM instead")
-            try:
-                cam = EigenCAM(
-                    model=wrapped,
-                    target_layers=target_layers,
-                    reshape_transform=vit_reshape_transform,
-                )
-                grayscale_cam = cam(input_tensor=img_tensor, targets=targets)[0, :]
-                print(f"✅ EigenCAM succeeded")
-            except Exception as e:
-                print(f"[ERROR] EigenCAM also failed: {e}")
-                return None
 
-    if grayscale_cam is None:
-        print("[ERROR] Could not generate heatmap")
-        return None
+    print(f"Heatmap: CAM computation took {time.time() - step:.2f}s")
 
-    print(f"⏱️ Heatmap: CAM computation took {time.time() - step:.2f}s")
+    grayscale_cam = grayscale_cam - grayscale_cam.min()
+    grayscale_cam = grayscale_cam / (grayscale_cam.max() + 1e-8)
 
-    # --- AGGRESSIVE ENHANCEMENT for focused heatmap ---
-    cam_std = grayscale_cam.std()
-    cam_range = grayscale_cam.max() - grayscale_cam.min()
-    print(f"📊 CAM stats: std={cam_std:.4f}, range={cam_range:.4f}")
-    
-    # More aggressive percentile clipping to remove outliers
-    p_low, p_high = np.percentile(grayscale_cam, [5, 95])
-    grayscale_cam = np.clip(grayscale_cam, p_low, p_high)
-    
-    # Normalize
-    cam_min, cam_max = grayscale_cam.min(), grayscale_cam.max()
-    if cam_max - cam_min > 1e-8:
-        grayscale_cam = (grayscale_cam - cam_min) / (cam_max - cam_min)
-    else:
-        grayscale_cam = np.ones_like(grayscale_cam) * 0.5
-    
-    # MUCH more aggressive enhancement to focus on tumor
-    gamma = 3.5  # Strong focus
-    threshold = 0.30  # Remove a lot of weak activations
-    
-    print(f"🔧 Using gamma={gamma}, threshold={threshold}")
-    
-    # Apply gamma correction
-    grayscale_cam = np.power(grayscale_cam, gamma)
-    
-    # Apply threshold
-    grayscale_cam[grayscale_cam < threshold] = 0
-    
-    # Re-normalize after thresholding
-    if grayscale_cam.max() > 0:
-        grayscale_cam = grayscale_cam / grayscale_cam.max()
-    
-    # Minimal smoothing to preserve edges
-    from scipy.ndimage import gaussian_filter
-    grayscale_cam = gaussian_filter(grayscale_cam, sigma=0.3)
-    
-    print(f"✅ CAM enhanced: gamma={gamma}, threshold={threshold}")
+    cam_resized = cv2.resize(grayscale_cam, (224, 224))
 
-    # --- Resize and create overlay ---
-    cam_resized = cv2.resize(
-        grayscale_cam.astype(np.float32), 
-        (224, 224),
-        interpolation=cv2.INTER_CUBIC
-    )
-
-    img_224 = pil_img.resize((224, 224), Image.Resampling.LANCZOS)
+    img_224 = pil_img.resize((224, 224))
     img_bgr = cv2.cvtColor(np.array(img_224), cv2.COLOR_RGB2BGR)
 
     heatmap = np.uint8(255 * cam_resized)
     heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    
-    # Balanced blend
-    overlay = cv2.addWeighted(img_bgr, 0.65, heatmap_color, 0.35, 0)
 
-    # --- Save ---
+    overlay = cv2.addWeighted(img_bgr, 0.55, heatmap_color, 0.45, 0)
+
     if save_path is None:
         root, _ = os.path.splitext(image_path)
-        save_path = f"{root}_heatmap.jpg"
+        save_path = f"{root}_vit_gradcam.jpg"
 
-    cv2.imwrite(save_path, overlay, [cv2.IMWRITE_JPEG_QUALITY, 95])
-    print(f"✅ CAM generation total: {time.time() - start:.2f}s (class={pred_class})")
+    step = time.time()
+    cv2.imwrite(save_path, overlay)
+    print(f"Heatmap: Save to disk took {time.time() - step:.2f}s")
+    print(f"CAM generation total: {time.time() - start:.2f}s (class={pred_class})")
 
     # --- Try Firebase upload ---
     try:
