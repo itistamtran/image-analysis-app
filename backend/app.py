@@ -131,6 +131,9 @@ RECAPTCHA_SITE_KEY = os.getenv("RECAPTCHA_SITE_KEY")
 RECAPTCHA_API_KEY = os.getenv("RECAPTCHA_API_KEY")
 GOOGLE_CLOUD_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT_ID")
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "model_loaded": model is not None}
 
 @app.route("/verify_recaptcha", methods=["POST"])
 def verify_recaptcha():
