@@ -54,7 +54,13 @@ app = Flask(
 app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.config['TRUST_PROXY_HEADERS'] = True
+app.config['SESSION_COOKIE_SECURE'] = True 
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
+
+# Load env + secret key
+app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # CORS setup
 ALLOWED_ORIGINS = [
@@ -77,6 +83,17 @@ CORS(
     vary_header=True    
 )
 
+# Explicit CORS headers on every response
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With,Accept'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+    return response
+
 # Register Blueprints
 app.register_blueprint(doctor_bp, url_prefix="/doctors")
 app.register_blueprint(patient_bp, url_prefix="/patients")
@@ -96,9 +113,6 @@ UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads", "mri")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Load env + secret key
-app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "dev-secret-key")
 
 # Initialize mail (from mail_config.py)
 init_mail(app)
