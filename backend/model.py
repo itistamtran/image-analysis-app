@@ -1,8 +1,6 @@
 import io
 from PIL import Image
-from transformers import AutoModelForImageClassification, AutoImageProcessor, ViTForImageClassification, ViTImageProcessor
-import zipfile
-import gdown
+from transformers import AutoModelForImageClassification, AutoImageProcessor
 import torch
 import cv2
 import os
@@ -13,95 +11,34 @@ from pytorch_grad_cam.utils.reshape_transforms import vit_reshape_transform
 import firebase_admin
 from firebase_admin import storage, credentials
 import json
-from huggingface_hub import login
 import uuid
 
-MODEL_REPO = "itistamtran/vit_brain_tumor_best_model"
-HF_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
 
-BASE_DIR = os.path.dirname(__file__)
-MODEL_FOLDER = os.path.join(BASE_DIR, "ml_model")
-MODEL_ZIP = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model.zip")
-MODEL_DIR = os.path.join(MODEL_FOLDER, "vit_brain_tumor_best_model")
-GDRIVE_URL = "https://drive.google.com/uc?id=1LUyW4-gluhJoMZfHQxep8P-H85DUd7Wt"
+MODEL_REPO = "itistamtran/vit_brain_tumor_multiclass_v2"
 
-CLASS_NAMES = ["glioma", "meningioma", "no_tumor", "pituitary", "unknown"]
-
-# where temp images will be saved in app
+# Where GradCAM temp images will be saved
 STATIC_MRI_DIR = os.path.join(os.getcwd(), "static", "uploads", "mri")
 os.makedirs(STATIC_MRI_DIR, exist_ok=True)
 
-# MODEL LOADING (RUNS ONCE)
-def _load_from_huggingface():
-    """Try to load model from Hugging Face hub."""
-    print(f"🚀 Loading model from Hugging Face: {MODEL_REPO}")
+print(f"🚀 Loading model from Hugging Face: {MODEL_REPO}")
 
-    # optional explicit login if you really need it (can be omitted)
-    if HF_TOKEN:
-        try:
-            login(token=HF_TOKEN)
-        except Exception as e:
-            print(f"[WARN] HuggingFace login failed: {e}")
+# Load model + processor (public repo – no token needed)
+model = AutoModelForImageClassification.from_pretrained(
+    MODEL_REPO,
+    local_files_only=False,
+)
+processor = AutoImageProcessor.from_pretrained(
+    MODEL_REPO,
+    local_files_only=False,
+)
 
-    model = AutoModelForImageClassification.from_pretrained(
-        MODEL_REPO,
-        token=HF_TOKEN,
-    )
-    processor = AutoImageProcessor.from_pretrained(
-        MODEL_REPO,
-        token=HF_TOKEN,
-    )
-    print("✅ Model + processor loaded from Hugging Face")
-    return model, processor
+# class labels from HF config
+CLASS_NAMES = model.config.id2label  # dict {0: label}
 
-def _ensure_local_model_dir():
-    """Download and extract the model zip from Google Drive if needed."""
-    if os.path.exists(MODEL_DIR):
-        return
-
-    os.makedirs(MODEL_FOLDER, exist_ok=True)
-    print("⬇️  Downloading model from Google Drive fallback...")
-
-    gdown.download(GDRIVE_URL, MODEL_ZIP, quiet=False)
-
-    print("📦 Extracting model zip...")
-    with zipfile.ZipFile(MODEL_ZIP, "r") as zip_ref:
-        zip_ref.extractall(MODEL_FOLDER)
-
-    print("✅ Local model directory ready:", MODEL_DIR)
-
-
-def _load_from_local_folder():
-    """Fallback: load model from a local folder (downloaded zip)."""
-    _ensure_local_model_dir()
-    print("📂 Loading model from local folder...")
-    model = ViTForImageClassification.from_pretrained(MODEL_DIR)
-    processor = ViTImageProcessor.from_pretrained(MODEL_DIR)
-    print("✅ Model + processor loaded from local folder")
-    return model, processor
-
-
-def _load_model():
-    """Main entry: try HF, then local fallback."""
-    try:
-        return _load_from_huggingface()
-    except Exception as e:
-        print(f"❌ Failed to load from Hugging Face: {e}")
-        print("Trying fallback to local or Google Drive...")
-        return _load_from_local_folder()
-
-# actually load the model ONCE
-_model, _processor = _load_model()
-
-# device setup
-_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-_model.to(_device)
-_model.eval()
-
-# public names for import in other modules
-model = _model
-processor = _processor
-device = _device
+# Device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+model.eval()
 
 print(f"✅ Model ready on device: {device}")
 
