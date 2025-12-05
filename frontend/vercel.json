@@ -2,6 +2,12 @@
   "buildCommand": "pnpm install && pnpm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "routes": [
+    {
+      "src": "/ads.txt",
+      "dest": "/ads.txt"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
